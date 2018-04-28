@@ -7,6 +7,7 @@ import subprocess32 as subprocess
 import json
 
 BENCH_CONFIG_FILE = 'benchmark.json'
+BENCH_TIME = 180
 BUFFER_SIZE = 1024
 HOST = '0.0.0.0'
 PORT = 15555
@@ -82,7 +83,7 @@ if __name__ == "__main__":
 
                 print "Starting the server... : '{}'".format(server_cmd)
 
-                client_cmd = CLIENT_CMD_PATTERN.format(trial['framerate'], trial['width'], trial['height'], 180,
+                client_cmd = CLIENT_CMD_PATTERN.format(trial['framerate'], trial['width'], trial['height'], BENCH_TIME,
                                                        trial['trial'])
 
                 # open the server process with the specified logfile
