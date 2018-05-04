@@ -19,7 +19,7 @@ BUFFER_SIZE = 1024
 HOST_PORT = ('0.0.0.0', 15554)
 
 # video streaming server start command pattern
-SERVER_START_CMD_PATTERN = "./RTSPServer --trial={} -t camera -s rare --out-width={} --out-height={}" \
+SERVER_START_CMD_PATTERN = "../build/RTSPServer --trial={} -t camera -s rare --out-width={} --out-height={}" \
                            " --vbv-bufsize={} --udp={} --bitrate={} --out-fps={}"
 
 # client benchmark start command pattern
