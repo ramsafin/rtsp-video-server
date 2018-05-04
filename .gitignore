@@ -6,3 +6,6 @@ Makefile
 cmake_install.cmake
 *.cbp
 *.log
+*.json
+RTSPServer
+build/
