@@ -23,7 +23,7 @@ SERVER_START_CMD_PATTERN = "../build/RTSPServer --trial={} -t camera -s rare --o
                            " --vbv-bufsize={} --udp={} --bitrate={} --out-fps={}"
 
 # client benchmark start command pattern
-CLIENT_CMD_PATTERN = 'openRTSP -V -f {} -w {} -h {} -Q -n -d {} -F trial_{}_ rtsp://10.42.0.1:8554/camerac'
+CLIENT_CMD_PATTERN = 'openRTSP -V -f {} -w {} -h {} -Q -n -d {} -F trial_{}_ rtsp://10.42.0.1:8554/camera'
 
 
 # sets socket options to keep connection alive
