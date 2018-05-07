@@ -10,7 +10,7 @@ import sys
 BENCH_CONFIG_FILE = 'benchmark.json'
 
 # benchmark's one pass time in seconds
-BENCH_TIME = 180
+BENCH_TIME = 120
 
 # socket buffer size
 BUFFER_SIZE = 1024
