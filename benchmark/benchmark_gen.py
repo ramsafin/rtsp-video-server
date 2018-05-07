@@ -26,7 +26,7 @@ for (w, h) in resolutions:
                     'trial': trial_num,
                     'width': w,
                     'height': h,
-                    'framerate': fps,
+                    'frame_rate': fps,
                     'bit_rate': bit_rate,
                     'buf_size': int(bit_rate * buf_size_factor),
                     'datagram_size': datagram_size

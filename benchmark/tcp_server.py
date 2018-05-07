@@ -27,7 +27,7 @@ CLIENT_CMD_PATTERN = 'openRTSP -V -f {} -w {} -h {} -Q -n -d {} -F trial_{}_ rts
 
 
 # sets socket options to keep connection alive
-def set_keep_alive(sock, after_idle_sec=30, interval_sec=30, max_fails=10):
+def set_keep_alive(sock, after_idle_sec=30, interval_sec=10, max_fails=10):
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, after_idle_sec)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
@@ -89,8 +89,8 @@ if __name__ == "__main__":
             try:
 
                 server_cmd = SERVER_START_CMD_PATTERN.format(trial['trial'], trial['width'], trial['height'],
-                                                             trial['bufsize'], trial['udp'], trial['bitrate'],
-                                                             trial['framerate'])
+                                                             trial['buf_size'], trial['datagram_size'], trial['bit_rate'],
+                                                             trial['frame_rate'])
 
                 print "Starting the server... : '{}'".format(server_cmd)
 
