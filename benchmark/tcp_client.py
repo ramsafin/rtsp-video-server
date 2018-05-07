@@ -4,7 +4,7 @@ import socket
 from time import sleep
 import subprocess32 as subprocess
 
-HOST_PORT = ('10.42.0.1', 15554)
+HOST_PORT = ('10.42.0.1', 15555)
 
 # socket buffer size
 BUFFER_SIZE = 1024
@@ -32,6 +32,8 @@ if __name__ == '__main__':
             print "Waiting for data ..."
 
             server_data = wait_for_data(s)
+
+            print "Data: {}".format(server_data)
 
             if server_data == 'KILL':
                 break
