@@ -7,9 +7,9 @@ resolutions = [(240, 180), (320, 240), (360, 270), (480, 360), (640, 480), (744,
 
 frame_rates = [3, 5, 7, 9]
 
-bitrates = [100, 200, 300, 400]
+bit_rates = [100, 200, 300, 400]
 
-bufsize_factor = 2.5
+buf_size_factor = 2.5
 
 udp_datagram_sizes = [500, 1000, 1500, 2000]
 
@@ -20,16 +20,16 @@ benchmark = {'benchmark': []}
 # generate a benchmark object
 for (w, h) in resolutions:
     for fps in frame_rates:
-        for b in bitrates:
-            for udp in udp_datagram_sizes:
+        for bit_rate in bit_rates:
+            for datagram_size in udp_datagram_sizes:
                 trial = {
                     'trial': trial_num,
                     'width': w,
                     'height': h,
-                    'framerate': fps,
-                    'bitrate': b,
-                    'bufsize': int(b * bufsize_factor),
-                    'udp': udp
+                    'frame_rate': fps,
+                    'bit_rate': bit_rate,
+                    'buf_size': int(bit_rate * buf_size_factor),
+                    'datagram_size': datagram_size
                 }
 
                 trial_num += 1

@@ -10,24 +10,24 @@ import sys
 BENCH_CONFIG_FILE = 'benchmark.json'
 
 # benchmark's one pass time in seconds
-BENCH_TIME = 180
+BENCH_TIME = 120
 
 # socket buffer size
 BUFFER_SIZE = 1024
 
 # socket bind IP + port
-HOST_PORT = ('0.0.0.0', 15554)
+HOST_PORT = ('0.0.0.0', 15555)
 
 # video streaming server start command pattern
 SERVER_START_CMD_PATTERN = "../build/RTSPServer --trial={} -t camera -s rare --out-width={} --out-height={}" \
                            " --vbv-bufsize={} --udp={} --bitrate={} --out-fps={}"
 
 # client benchmark start command pattern
-CLIENT_CMD_PATTERN = 'openRTSP -V -f {} -w {} -h {} -Q -n -d {} -F trial_{}_ rtsp://10.42.0.1:8554/camerac'
+CLIENT_CMD_PATTERN = 'openRTSP -V -f {} -w {} -h {} -Q -n -d {} -F trial_{}_ rtsp://10.42.0.1:8554/camera'
 
 
 # sets socket options to keep connection alive
-def set_keep_alive(sock, after_idle_sec=30, interval_sec=30, max_fails=10):
+def set_keep_alive(sock, after_idle_sec=30, interval_sec=10, max_fails=10):
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, after_idle_sec)
     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, interval_sec)
@@ -89,17 +89,25 @@ if __name__ == "__main__":
             try:
 
                 server_cmd = SERVER_START_CMD_PATTERN.format(trial['trial'], trial['width'], trial['height'],
-                                                             trial['bufsize'], trial['udp'], trial['bitrate'],
-                                                             trial['framerate'])
+                                                             trial['buf_size'], trial['datagram_size'],
+                                                             trial['bit_rate'], trial['frame_rate'])
 
                 print "Starting the server... : '{}'".format(server_cmd)
 
                 # open the server process with the specified logfile
                 video_server_process = subprocess.Popen(server_cmd.split(), stdout=logfile, stderr=logfile)
 
-                sleep(5)  # waiting for the server to be ready to accept connections
+                sleep(5)
 
-                client_cmd = CLIENT_CMD_PATTERN.format(trial['framerate'], trial['width'], trial['height'], BENCH_TIME,
+                # try to restart server
+                while video_server_process.poll() is not None:
+                    print "Trying to restart RTSP server ..."
+                    video_server_process = subprocess.Popen(server_cmd.split(), stdout=logfile, stderr=logfile)
+                    sleep(5)
+
+                print "Server is ready to serve clients!"
+
+                client_cmd = CLIENT_CMD_PATTERN.format(trial['frame_rate'], trial['width'], trial['height'], BENCH_TIME,
                                                        trial['trial'])
 
                 print "Sending command to client: {}".format(client_cmd)
@@ -113,7 +121,7 @@ if __name__ == "__main__":
                 # stop the server
                 video_server_process.terminate()
 
-                sleep(5)  # wait for the server to stop
+                video_server_process.wait()
 
             except socket.error:
                 print "Error occurred:", str(socket.error)
@@ -123,7 +131,7 @@ if __name__ == "__main__":
     client_connection.sendall("KILL")
 
     # wait for the client to stop
-    sleep(2)
+    sleep(10)
 
     # close resources
     client_connection.close()
