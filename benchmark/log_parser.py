@@ -21,7 +21,7 @@ def parse_client_bench_trials(trials):
 
 
 def parse_client_bench_trial(trial):
-    """Parses client bench trial and returns a tuple - (trial_num, {statistics dict})"""
+    """Parses client bench trial and returns resulting dict"""
     groups = re.match(r'.*trial_(\d{1,3})_video-H265.*num_packets_received\s(\d+).*num_packets_lost\s(\d+)'
                       r'.*kbits_per_second_min\s(.*?)\n.*kbits_per_second_ave\s(.*?)\n.*kbits_per_second_max\s(.*?)\n'
                       r'.*inter_packet_gap_ms_min\s(.*?)\n.*inter_packet_gap_ms_ave\s(.*?)\n'
@@ -47,7 +47,7 @@ def parse_server_trials(trial_entries):
 
 
 def parse_server_trial(e):
-    """Parses server trial and returns resulting tuple - (trial_num, {info dict})"""
+    """Parses server trial and returns resulting dict"""
     groups = re.match(r'trial:\s(\d{1,3}).*out_framerate:\s(\d).*bitrate:\s(\d{3}).*UDP:\s(\d{3,4})'
                       r'.*Max NALU size:\s(\d+)'
                       r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)'
