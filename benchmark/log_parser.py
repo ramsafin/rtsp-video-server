@@ -48,27 +48,43 @@ def parse_server_trials(trial_entries):
 
 def parse_server_trial(e):
     """Parses server trial and returns resulting dict"""
+
     groups = re.match(r'trial:\s(\d{1,3}).*out_framerate:\s(\d+).*bitrate:\s(\d{3}).*UDP:\s(\d{3,4})'
                       r'.*Max NALU size:\s(\d+)'
                       r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)'
                       r'\n', e, re.S).groups()
-    
+
     return {'trial': groups[0], 'fps': groups[1], 'bitrate': groups[2], 'datagram_size': groups[3],
-            'NALU': groups[4],'qp': groups[5].strip(), 'codec_bitrate': groups[6].strip()}
+            'nalu': groups[4],'qp': groups[5].strip(), 'codec_bitrate': groups[6].strip()}
 
 
 def join_client_server_benchmarks(client_bench, server_bench):
-    """Joins client and server log information"""
-    pass
-    
+    """
+    Joins client and server log information considering 'trial' number.
+
+    See https://stackoverflow.com/questions/38987/how-to-merge-two-dictionaries-in-a-single-expression#26853961
+    """
+
+    res_list = []
+
+    if len(client_bench) != len(server_bench):
+        raise ValueError('client and server dicts sizes must be equal')
+
+    for x in xrange(len(client_bench)):
+        assert client_bench[x]['trial'] == server_bench[x]['trial']
+        res_dict = client_bench[x].copy()
+        res_dict.update(server_bench[x])
+        res_list.append(res_dict)
+
+    return res_list
+
 
 if __name__ == '__main__':
+
     with open(SERVER_LOG_FILE, 'r', FILE_IO_BUF_SIZE) as server_log:
         server_logs = retrieve_server_bench_info(server_log.read())
-
-    print parse_server_trials(server_logs)[:1]
 
     with open(CLIENT_LOG_FILE, 'r', FILE_IO_BUF_SIZE) as client_log:
         qos_stats = retrieve_client_qos_stats(client_log.read())
 
-    print parse_client_bench_trials(qos_stats)[:1]
+    print join_client_server_benchmarks(parse_client_bench_trials(qos_stats), parse_server_trials(server_logs))
