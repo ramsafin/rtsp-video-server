@@ -10,3 +10,4 @@ cmake_install.cmake
 RTSPServer
 build/
 testenv/
+.DS_Store
