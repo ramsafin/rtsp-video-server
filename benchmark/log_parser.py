@@ -1,10 +1,14 @@
 import re
+import json
+import collections
 
 FILE_IO_BUF_SIZE = 4096
 
 CLIENT_LOG_FILE = 'client_output.log'
 
 SERVER_LOG_FILE = 'server_output.log'
+
+PARSED_DATA_FILE = 'benchmark_results.json'
 
 
 def retrieve_client_qos_stats(logs):
@@ -27,10 +31,15 @@ def parse_client_bench_trial(trial):
                       r'.*inter_packet_gap_ms_min\s(.*?)\n.*inter_packet_gap_ms_ave\s(.*?)\n'
                       r'.*inter_packet_gap_ms_max\s(.*?)\n', trial, re.S).groups()
 
-    return {'trial': groups[0], 'num_packets_received': groups[1], 'num_packets_lost': groups[2],
-            'bitrate_min': groups[3].strip(), 'bitrate_avg': groups[4].strip(),
-            'bitrate_max': groups[5].strip(), 'inter_packet_gap_min': groups[6].strip(),
-            'inter_packet_gap_avg': groups[7].strip(), 'inter_packet_gap_max': groups[8].strip()}
+    return {'trial': int(groups[0]),
+            'packets_received': int(groups[1]),
+            'packets_lost': int(groups[2]),
+            'bitrate_min': float(groups[3].strip()),
+            'bitrate_avg': float(groups[4].strip()),
+            'bitrate_max': float(groups[5].strip()),
+            'inter_packet_gap_min': float(groups[6].strip()),
+            'inter_packet_gap_avg': float(groups[7].strip()),
+            'inter_packet_gap_max': float(groups[8].strip())}
 
 
 def retrieve_server_bench_info(logs):
@@ -49,13 +58,24 @@ def parse_server_trials(trial_entries):
 def parse_server_trial(e):
     """Parses server trial and returns resulting dict"""
 
-    groups = re.match(r'trial:\s(\d{1,3}).*out_framerate:\s(\d+).*bitrate:\s(\d{3}).*UDP:\s(\d{3,4})'
+    groups = re.match(r'trial:\s(\d{1,3})'
+                      r'.*out_frame_width:\s(\d{3})'
+                      r'.*out_frame_height:\s(\d{3})'
+                      r'.*out_framerate:\s(\d+)'
+                      r'.*bitrate:\s(\d{3}).*UDP:\s(\d{3,4})'
                       r'.*Max NALU size:\s(\d+)'
                       r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)'
                       r'\n', e, re.S).groups()
 
-    return {'trial': groups[0], 'fps': groups[1], 'bitrate': groups[2], 'datagram_size': groups[3],
-            'nalu': groups[4],'qp': groups[5].strip(), 'codec_bitrate': groups[6].strip()}
+    return {'trial': int(groups[0]),
+            'frame_width': int(groups[1]),
+            'frame_height': int(groups[2]),
+            'target_fps': int(groups[3]),
+            'target_bitrate': int(groups[4]),
+            'datagram_size': float(groups[5]),
+            'nalu': int(groups[6]),
+            'avg_qp': float(groups[7].strip()),
+            'codec_bitrate': float(groups[8].strip())}
 
 
 def join_client_server_benchmarks(client_bench, server_bench):
@@ -74,7 +94,8 @@ def join_client_server_benchmarks(client_bench, server_bench):
         assert client_bench[x]['trial'] == server_bench[x]['trial']
         res_dict = client_bench[x].copy()
         res_dict.update(server_bench[x])
-        res_list.append(res_dict)
+        ordered_res_dict = collections.OrderedDict(reversed(sorted(res_dict.items())))
+        res_list.append(ordered_res_dict)
 
     return res_list
 
@@ -87,4 +108,6 @@ if __name__ == '__main__':
     with open(CLIENT_LOG_FILE, 'r', FILE_IO_BUF_SIZE) as client_log:
         qos_stats = retrieve_client_qos_stats(client_log.read())
 
-    print join_client_server_benchmarks(parse_client_bench_trials(qos_stats), parse_server_trials(server_logs))
+    # save parsed logs as json file
+    with open(PARSED_DATA_FILE, 'wb', FILE_IO_BUF_SIZE) as result_file:
+        json.dump(join_client_server_benchmarks(parse_client_bench_trials(qos_stats), parse_server_trials(server_logs)), result_file, indent=True)
