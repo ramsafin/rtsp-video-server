@@ -27,7 +27,8 @@ int main(int argc, char **argv) {
 
     configuration.loadConfig(argc, argv);
 
-    LIRS::Transcoder camera(configuration);
+    LIRS::Transcoder leftCamera(configuration, "left_cam", LEFT_CAM);
+    LIRS::Transcoder rightCamera(configuration, "right_cam", RIGHT_CAM);
 
     LIRS::LiveCameraRTSPServer server;
 
@@ -39,7 +40,9 @@ int main(int argc, char **argv) {
         server.stopServer();
     };
 
-    server.addTranscoder(camera);
+    server.addTranscoder(leftCamera);
+    server.addTranscoder(rightCamera);
+
 
     server.run();
 

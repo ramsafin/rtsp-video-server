@@ -9,12 +9,14 @@ namespace LIRS {
 
         cleanup();
 
-        LOG(DEBUG) << "Transcoder has been destructed (camera: " << config.get_streaming_source() << ")";
+        LOG(WARN) << "Transcoder destructed: " << cameraName;
     }
 
-    Transcoder::Transcoder(const Configuration &config) : config(config), needToStopFlag(false), isRunningFlag(false) {
+    Transcoder::Transcoder(const Configuration &config, std::string const &cameraName, std::string const &cameraUrl)
+            : config(config), cameraName(cameraName), cameraUrl(cameraUrl), needToStopFlag(false),
+              isRunningFlag(false) {
 
-        LOG(DEBUG) << "Constructing transcoder for " << config.get_streaming_source();
+        LOG(DEBUG) << "Constructing transcoder for " << cameraUrl;
 
         // get the pixel format enum
         this->rawPixFormat = av_get_pix_fmt(config.get_pixel_format().c_str());
@@ -130,7 +132,7 @@ namespace LIRS {
 
     void Transcoder::initializeDecoder() {
 
-        LOG(DEBUG) << "Initialize decoder of the camera " << config.get_streaming_source();
+        LOG(DEBUG) << "Initialize decoder of the camera " << cameraUrl;
 
         // holds the general information about the format (container)
         decoderContext.formatContext = avformat_alloc_context();
@@ -148,7 +150,7 @@ namespace LIRS {
         av_dict_set(&options, "pixel_format", av_get_pix_fmt_name(rawPixFormat), 0);
         av_dict_set(&options, "framerate", framerateStr.data(), 0);
 
-        int statCode = avformat_open_input(&decoderContext.formatContext, config.get_streaming_source().data(),
+        int statCode = avformat_open_input(&decoderContext.formatContext, cameraUrl.data(),
                                            inputFormat, &options);
         av_dict_free(&options);
         assert(statCode == 0);
@@ -157,7 +159,7 @@ namespace LIRS {
         statCode = avformat_find_stream_info(decoderContext.formatContext, nullptr);
         assert(statCode >= 0);
 
-        av_dump_format(decoderContext.formatContext, 0, config.get_streaming_source().data(), 0);
+        av_dump_format(decoderContext.formatContext, 0, cameraName.data(), 0);
 
         // find video stream (if multiple video streams are available then you should choose one manually)
         int videoStreamIndex = av_find_best_stream(decoderContext.formatContext, AVMEDIA_TYPE_VIDEO, -1, -1,
@@ -441,7 +443,7 @@ namespace LIRS {
         decoderContext = {};
         encoderContext = {};
 
-        LOG(DEBUG) << "Cleanup transoder!";
+        LOG(DEBUG) << "Cleanup transcoder!";
     }
 
     void Transcoder::setOnEncodedDataCallback(std::function<void(std::vector<uint8_t> &&)> callback) {
@@ -454,6 +456,14 @@ namespace LIRS {
 
     Configuration const &Transcoder::getConfig() const {
         return config;
+    }
+
+    std::string const &Transcoder::getCameraName() const {
+        return cameraName;
+    }
+
+    std::string const &Transcoder::getCameraUrl() const {
+        return cameraUrl;
     }
 
     // TranscoderContext

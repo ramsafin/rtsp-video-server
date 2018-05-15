@@ -76,7 +76,7 @@ namespace LIRS {
 
         // create media session for each video source (transcoder)
         for (auto &transcoder : transcoders) {
-            addMediaSession(transcoder, transcoder->getConfig().get_streaming_topic(), "stream description");
+            addMediaSession(transcoder, transcoder->getCameraName(), "stream description");
         }
 
         env->taskScheduler().doEventLoop(&watcher); // do not return
@@ -91,7 +91,7 @@ namespace LIRS {
     void LiveCameraRTSPServer::addMediaSession(Transcoder *transcoder, const std::string &streamName,
                                                const std::string &streamDesc) {
 
-        LOG(DEBUG) << "Adding media session for camera: " << transcoder->getConfig().get_streaming_source();
+        LOG(DEBUG) << "Adding media session for camera: " << transcoder->getCameraName();
 
         // create framed source for camera
         auto framedSource = LiveCamFramedSource::createNew(*env, *transcoder);
@@ -112,7 +112,7 @@ namespace LIRS {
         server->addServerMediaSession(sms);
 
         // announce stream
-        announceStream(sms, transcoder->getConfig().get_streaming_topic());
+        announceStream(sms, transcoder->getCameraName());
     }
 
 }

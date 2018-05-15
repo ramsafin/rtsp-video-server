@@ -10,7 +10,7 @@ import sys
 BENCH_CONFIG_FILE = 'benchmark.json'
 
 # benchmark's one pass time in seconds
-BENCH_TIME = 120
+BENCH_TIME = 100
 
 # socket buffer size
 BUFFER_SIZE = 1024
@@ -19,11 +19,11 @@ BUFFER_SIZE = 1024
 HOST_PORT = ('0.0.0.0', 15555)
 
 # video streaming server start command pattern
-SERVER_START_CMD_PATTERN = "../build/RTSPServer --trial={} -t camera -s rare --out-width={} --out-height={}" \
+SERVER_START_CMD_PATTERN = "../build/RTSPServer --trial={} --out-width={} --out-height={}" \
                            " --vbv-bufsize={} --udp={} --bitrate={} --out-fps={}"
 
 # client benchmark start command pattern
-CLIENT_CMD_PATTERN = 'openRTSP -V -f {} -w {} -h {} -Q -n -d {} -F trial_{}_ rtsp://10.42.0.1:8554/camera'
+CLIENT_CMD_PATTERN = 'openRTSP -V -f {} -w {} -h {} -Q -n -d {} -F trial_{}_<replace>_ rtsp://10.42.0.1:8554/<replace>'
 
 
 # sets socket options to keep connection alive
@@ -105,7 +105,7 @@ if __name__ == "__main__":
                     video_server_process = subprocess.Popen(server_cmd.split(), stdout=logfile, stderr=logfile)
                     sleep(5)
 
-                print "Server is ready to serve clients!"
+                print "Video server is ready to serve clients!"
 
                 client_cmd = CLIENT_CMD_PATTERN.format(trial['frame_rate'], trial['width'], trial['height'], BENCH_TIME,
                                                        trial['trial'])

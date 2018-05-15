@@ -9,6 +9,8 @@ HOST_PORT = ('10.42.0.1', 15555)
 # socket buffer size
 BUFFER_SIZE = 1024
 
+CHECK_OPEN_RTSP_CALL = 'openRTSP -d 1 rtsp://10.42.0.1:8554/{}'
+
 
 # wait for data from the socket
 def wait_for_data(sock, sleep_sec=1):
@@ -21,37 +23,59 @@ def wait_for_data(sock, sleep_sec=1):
 
 if __name__ == '__main__':
 
-    with open('client_output.log', 'wb') as logfile:
+    with open('left_camera_output.log', 'wb') as left_cam_logfile:
 
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        with open('right_camera_output.log', 'wb') as right_cam_logfile:
 
-        s.connect(HOST_PORT)
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        while True:
+            s.connect(HOST_PORT)
 
-            print "Waiting for data ..."
+            while True:
 
-            server_data = wait_for_data(s)
+                print "Waiting for data ..."
 
-            print "Data: {}".format(server_data)
+                server_data = wait_for_data(s)
 
-            if server_data == 'KILL':
-                break
-            else:
+                print "Data: {}".format(server_data)
 
-                while True:
-                    try:
-                        print "Launch openRTSP ..."
+                server_data = server_data.replace('<replace>', '{}')
 
-                        subprocess.check_call(server_data.split(), stdout=logfile, stderr=logfile)
+                if server_data == 'KILL':
+                    break
+                else:
 
-                        print "Send FINISHED signal ..."
-                        break
-                    except subprocess.CalledProcessError as e:
-                        print str(e)
-                        print "Retrying ..."
-                        sleep(5)
-                        continue
+                    while True:
 
-                s.sendall("FINISHED")
+                        try:
+                            with open('/dev/null') as FNULL:
+                                subprocess.check_call(CHECK_OPEN_RTSP_CALL.format('left_cam').split(), stdout=FNULL,
+                                                      stderr=subprocess.STDOUT)
+                                subprocess.check_call(CHECK_OPEN_RTSP_CALL.format('right_cam').split(), stdout=FNULL,
+                                                      stderr=subprocess.STDOUT)
+
+                            print "Launch openRTSP for the left camera ..."
+
+                            open_rtsp_left_proc = subprocess.Popen(server_data.format('left', 'left_cam').split(),
+                                                                   stdout=left_cam_logfile, stderr=left_cam_logfile)
+
+                            print "Launch openRTSP for the right camera ..."
+
+                            open_rtsp_right_proc = subprocess.Popen(server_data.format('right', 'right_cam').split(),
+                                                                    stdout=right_cam_logfile, stderr=right_cam_logfile)
+
+                            print "Waiting for processes to finish..."
+
+                            exit_codes = [p.wait() for p in open_rtsp_left_proc, open_rtsp_right_proc]
+
+                            print 'Exit codes:', exit_codes
+
+                            print "Send FINISHED signal ..."
+                            break
+                        except Exception as e:
+                            print str(e)
+                            print "Retrying..."
+                            sleep(5)
+
+                    s.sendall("FINISHED")
     s.close()

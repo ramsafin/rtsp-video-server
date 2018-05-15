@@ -72,7 +72,7 @@ namespace LIRS {
          *
          * @param config - configuration to create transcoder.
          */
-        explicit Transcoder(const Configuration &config);
+        explicit Transcoder(const Configuration &config, std::string const &, std::string const &);
 
         /**
          * Don't allow to copy this object.
@@ -123,11 +123,20 @@ namespace LIRS {
          */
         const bool isRunning() const;
 
+        std::string const &getCameraName() const;
+
+        std::string const &getCameraUrl() const;
+
+
     private:
 
         /* parameters */
 
         Configuration const &config;
+
+        std::string cameraName;
+
+        std::string cameraUrl;
 
         /**
          * Frame width.

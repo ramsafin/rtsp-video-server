@@ -70,10 +70,6 @@ namespace LIRS {
                     ("help", "produce help message");
 
             streaming.add_options()
-                    ("source,s", po::value<std::string>(&streaming_source_url)->default_value(RARE_CAM),
-                     "set video streaming camera url")
-                    ("topic,t", po::value<std::string>(&streaming_topic_name)->default_value("rare"),
-                     "set streaming topic name")
                     ("width,w", po::value<size_t>(&origin_frame_width)->default_value(DEFAULT_FRAME_WIDTH),
                      "set original frame width")
                     ("height,h", po::value<size_t>(&origin_frame_height)->default_value(DEFAULT_FRAME_HEIGHT),
@@ -126,24 +122,9 @@ namespace LIRS {
                 exit(0);
             }
 
-            if (vm.count("source")) {
-
-                if (streaming_source_url == "rare") {
-                    streaming_source_url = RARE_CAM;
-                } else if (streaming_source_url == "right") {
-                    streaming_source_url = RIGHT_CAM;
-                } else if (streaming_source_url == "left") {
-                    streaming_source_url = LEFT_CAM;
-                } else if (streaming_source_url == "center") {
-                    streaming_source_url = ZOOM_CAM;
-                }
-            }
-
             LOG(DEBUG) << "Configuration has been loaded!";
 
             LOG(INFO) << "trial: " << trial_index << "\n\t"
-                      << "source: " << streaming_source_url << "\n\t"
-                      << "topic: " << streaming_topic_name << "\n\t"
                       << "origin_frame_width: " << origin_frame_width << "\n\t"
                       << "origin_frame_height: " << origin_frame_height << "\n\t"
                       << "out_frame_width: " << streaming_frame_width << "\n\t"
@@ -160,10 +141,6 @@ namespace LIRS {
         }
 
     private:
-
-        std::string streaming_source_url;
-
-        std::string streaming_topic_name;
 
         size_t origin_frame_width;
 
@@ -197,14 +174,6 @@ namespace LIRS {
         size_t trial_index;
 
     public:
-
-        const std::string &get_streaming_source() const {
-            return streaming_source_url;
-        }
-
-        const std::string &get_streaming_topic() const {
-            return streaming_topic_name;
-        }
 
         size_t get_frame_width() const {
             return origin_frame_width;
