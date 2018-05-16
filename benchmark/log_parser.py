@@ -2,34 +2,46 @@ import re
 import json
 import collections
 
-FILE_IO_BUF_SIZE = 4096
 
-CLIENT_LOG_FILE = 'client_output.log'
+def parse_client_logs(logfile_path):
+    """
+    Parses `logfile_path` file.
 
-SERVER_LOG_FILE = 'server_output.log'
+    :param string logfile_path: Log file path.
+    :return List of parsed trials.
+    """
+    with open(logfile_path, 'r', 512) as logfile:
+        qos_stats_list = retrieve_qos_stats(logfile.read())
 
-PARSED_DATA_FILE = 'benchmark_results.json'
+    return [parse_qos_stat(e) for e in qos_stats_list]
 
 
-def retrieve_client_qos_stats(logs):
-    """Retrieves QOS statistics from client logs"""
+def retrieve_qos_stats(logs):
+    """
+    Retrieves entries of QoS stats measurements.
+
+    :param string logs: Log file text.
+    :return List of entries with QoS stats.
+    """
     return re.findall(r'Created output file:(.*?)end_QOS_statistics', logs, re.S)
 
 
-def parse_client_bench_trials(trials):
-    """Parses client benchmark's statistics into the resulting list of dicts"""
-    res_lst = []
-    for trial in trials:
-        res_lst.append(parse_client_bench_trial(trial))
-    return res_lst
+def parse_qos_stat(stat):
+    """
+    Parses QoS stat entry.
 
-
-def parse_client_bench_trial(trial):
-    """Parses client bench trial and returns resulting dict"""
-    groups = re.match(r'.*trial_(\d{1,3})_video-H265.*num_packets_received\s(\d+).*num_packets_lost\s(\d+)'
-                      r'.*kbits_per_second_min\s(.*?)\n.*kbits_per_second_ave\s(.*?)\n.*kbits_per_second_max\s(.*?)\n'
-                      r'.*inter_packet_gap_ms_min\s(.*?)\n.*inter_packet_gap_ms_ave\s(.*?)\n'
-                      r'.*inter_packet_gap_ms_max\s(.*?)\n', trial, re.S).groups()
+    :param string stat: one entry of QoS statistics.
+    :return Dict of parsed values.
+    """
+    groups = re.match(r'.*trial_(\d{1,3}).*_video-H265'
+                      r'.*num_packets_received\s(\d+)'
+                      r'.*num_packets_lost\s(\d+)'
+                      r'.*kbits_per_second_min\s(.*?)\n'
+                      r'.*kbits_per_second_ave\s(.*?)\n'
+                      r'.*kbits_per_second_max\s(.*?)\n'
+                      r'.*inter_packet_gap_ms_min\s(.*?)\n'
+                      r'.*inter_packet_gap_ms_ave\s(.*?)\n'
+                      r'.*inter_packet_gap_ms_max\s(.*?)\n', stat, re.S).groups()
 
     return {'trial': int(groups[0]),
             'packets_received': int(groups[1]),
@@ -42,72 +54,65 @@ def parse_client_bench_trial(trial):
             'inter_packet_gap_max': float(groups[8].strip())}
 
 
-def retrieve_server_bench_info(logs):
-    """Retrieves server bench info"""
-    return re.findall(r'(trial.*?)consecutive B-frames: 100\.0%', logs, re.S)
+def parse_server_logs(logifle_path, is_stereo=False):
+    """
+    Parses server log file.
+
+    :param string logfile_path: Server log file path.
+    :param bool is_stereo: Indicates if two camera log file is being parsed.
+    :return List of parsed log entries
+    """
+    with open(logifle_path, 'r') as logfile:
+        log_entries = retrieve_log_entries(logfile.read())
+
+    return [parse_log_entry(e, is_stereo) for e in log_entries]
 
 
-def parse_server_trials(trial_entries):
-    """Parses each server bench trial and returns resulting list of dicts"""
-    res_lst = []
-    for e in trial_entries:
-        res_lst.append(parse_server_trial(e))
-    return res_lst
+def retrieve_log_entries(logs):
+    """
+    Retrieves server log entries (trials).
+
+    :param string logs: Log file text.
+    :return List of log entries (string).
+    """
+    return re.findall(r'(trial.*?encoded .*? frames in .*?s \(.*? fps\),'
+                      r'.*? kb/s, Avg QP:.*?\n)', logs, re.DOTALL)
 
 
-def parse_server_trial(e):
-    """Parses server trial and returns resulting dict"""
+def parse_log_entry(entry, is_stereo):
+    """
+    Parses server log entry.
 
+    :param string entry: Server log file entry.
+    :param bool is_stereo: Indicates if logs contain two cameras info.
+    :return Dict of parsed values.
+    """
     groups = re.match(r'trial:\s(\d{1,3})'
-                      r'.*out_frame_width:\s(\d{3})'
-                      r'.*out_frame_height:\s(\d{3})'
-                      r'.*out_framerate:\s(\d+)'
-                      r'.*bitrate:\s(\d{3}).*UDP:\s(\d{3,4})'
-                      r'.*Max NALU size:\s(\d+)'
-                      r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)'
-                      r'\n', e, re.S).groups()
-
+                  r'.*out_frame_width:\s(\d{3})'
+                  r'.*out_frame_height:\s(\d{3})'
+                  r'.*out_framerate:\s(\d+)'
+                  r'.*bitrate:\s(\d{3})'
+                  r'.*UDP:\s(\d{3,4})'
+                  r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)'
+                  r'\n', entry, re.S).groups()
+    
     return {'trial': int(groups[0]),
             'frame_width': int(groups[1]),
             'frame_height': int(groups[2]),
             'target_fps': int(groups[3]),
             'target_bitrate': int(groups[4]),
             'datagram_size': float(groups[5]),
-            'nalu': int(groups[6]),
-            'avg_qp': float(groups[7].strip()),
-            'codec_bitrate': float(groups[8].strip())}
+            'avg_qp': float(groups[6].strip()),
+            'codec_bitrate': float(groups[7].strip())}
 
 
-def join_client_server_benchmarks(client_bench, server_bench):
-    """
-    Joins client and server log information considering 'trial' number.
-
-    See https://stackoverflow.com/questions/38987/how-to-merge-two-dictionaries-in-a-single-expression#26853961
-    """
-
-    res_list = []
-
-    if len(client_bench) != len(server_bench):
-        raise ValueError('client and server dicts sizes must be equal')
-
-    for x in xrange(len(client_bench)):
-        assert client_bench[x]['trial'] == server_bench[x]['trial']
-        res_dict = client_bench[x].copy()
-        res_dict.update(server_bench[x])
-        ordered_res_dict = collections.OrderedDict(reversed(sorted(res_dict.items())))
-        res_list.append(ordered_res_dict)
-
-    return res_list
+def main():
+    pass
+    # print parse_server_logs('mono_logs/server_output.log')
+    # print parse_server_logs('stereo_logs/server_output.log')
 
 
 if __name__ == '__main__':
+    main()
 
-    with open(SERVER_LOG_FILE, 'r', FILE_IO_BUF_SIZE) as server_log:
-        server_logs = retrieve_server_bench_info(server_log.read())
 
-    with open(CLIENT_LOG_FILE, 'r', FILE_IO_BUF_SIZE) as client_log:
-        qos_stats = retrieve_client_qos_stats(client_log.read())
-
-    # save parsed logs as json file
-    with open(PARSED_DATA_FILE, 'wb', FILE_IO_BUF_SIZE) as result_file:
-        json.dump(join_client_server_benchmarks(parse_client_bench_trials(qos_stats), parse_server_trials(server_logs)), result_file, indent=True)
