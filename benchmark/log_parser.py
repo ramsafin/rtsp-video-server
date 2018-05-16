@@ -146,10 +146,25 @@ def retrieve_values(dict_list, val_name):
     return list(map(lambda x: x[val_name], dict_list))
 
 
+def save_excel(filename, headers, data):
+        """
+        Saves 
+        """
+        df_data = {}
+
+        for header in headers:
+            df_data[header] = retrieve_values(data, header)
+
+        data_frame = pd.DataFrame(df_data)
+        writer = pd.ExcelWriter(filename)
+        data_frame.to_excel(writer, 'Sheet1', index=False)
+        writer.save()
+
+
 def main():
     one_pass = merge_dicts_list(parse_client_logs('stereo_logs/left_camera_output.log', 'left_cam') ,parse_server_logs('stereo_logs/server_output.log'))
     res = merge_dicts_list(parse_client_logs('stereo_logs/right_camera_output.log', 'right_cam') , one_pass)
-    print retrieve_values(res, 'trial')
+    save_excel('stereo_logs/Benchmark-stereo-results.xlsx', res[0].keys(), res)
 
 if __name__ == '__main__':
     main()
