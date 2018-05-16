@@ -1,6 +1,9 @@
 import re
 import json
 import collections
+import pandas as pd
+import openpyxl
+import json
 
 
 def parse_client_logs(logfile_path, cam_name):
@@ -132,11 +135,21 @@ def merge_dicts_list(fst, snd):
     return res_lst
 
 
+def retrieve_values(dict_list, val_name):
+    """
+    Retrieves a slice of values with key `val_name` form list of dicts.
+
+    :param dict_list: list of dicts.
+    :param val_name: dict's key for which a slice must be retrieved.
+    :return a slice(list) of values for the specified key among dicts.
+    """
+    return list(map(lambda x: x[val_name], dict_list))
+
+
 def main():
     one_pass = merge_dicts_list(parse_client_logs('stereo_logs/left_camera_output.log', 'left_cam') ,parse_server_logs('stereo_logs/server_output.log'))
     res = merge_dicts_list(parse_client_logs('stereo_logs/right_camera_output.log', 'right_cam') , one_pass)
-    
-
+    print retrieve_values(res, 'trial')
 
 if __name__ == '__main__':
     main()
