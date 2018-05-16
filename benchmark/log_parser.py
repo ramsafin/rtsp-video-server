@@ -1,113 +1,170 @@
 import re
 import json
 import collections
-
-FILE_IO_BUF_SIZE = 4096
-
-CLIENT_LOG_FILE = 'client_output.log'
-
-SERVER_LOG_FILE = 'server_output.log'
-
-PARSED_DATA_FILE = 'benchmark_results.json'
+import pandas as pd
+import openpyxl
+import json
 
 
-def retrieve_client_qos_stats(logs):
-    """Retrieves QOS statistics from client logs"""
+def parse_client_logs(logfile_path, cam_name):
+    """
+    Parses client log file located at `logfile_path`.
+
+    :param string logfile_path: Log file path.
+    :param string cam_name: Parsed data's camera name.
+    :return List of parsed trials.
+    """
+    with open(logfile_path, 'r', 512) as logfile:
+        qos_stats_list = retrieve_qos_stats(logfile.read())
+
+    return [parse_qos_stat(e, cam_name) for e in qos_stats_list]
+
+
+def retrieve_qos_stats(logs):
+    """
+    Retrieves entries of clinet's QoS statistics.
+
+    :param string logs: Log file text.
+    :return List of entries with QoS stats.
+    """
     return re.findall(r'Created output file:(.*?)end_QOS_statistics', logs, re.S)
 
 
-def parse_client_bench_trials(trials):
-    """Parses client benchmark's statistics into the resulting list of dicts"""
-    res_lst = []
-    for trial in trials:
-        res_lst.append(parse_client_bench_trial(trial))
-    return res_lst
+def parse_qos_stat(stat, cam_name):
+    """
+    Parses clinet's QoS stat entry.
 
-
-def parse_client_bench_trial(trial):
-    """Parses client bench trial and returns resulting dict"""
-    groups = re.match(r'.*trial_(\d{1,3})_video-H265.*num_packets_received\s(\d+).*num_packets_lost\s(\d+)'
-                      r'.*kbits_per_second_min\s(.*?)\n.*kbits_per_second_ave\s(.*?)\n.*kbits_per_second_max\s(.*?)\n'
-                      r'.*inter_packet_gap_ms_min\s(.*?)\n.*inter_packet_gap_ms_ave\s(.*?)\n'
-                      r'.*inter_packet_gap_ms_max\s(.*?)\n', trial, re.S).groups()
+    :param string stat: one entry of QoS statistics.
+    :param string cam_name: Parsed data's camera name.
+    :return Dict of parsed values.
+    """
+    groups = re.match(r'.*trial_(\d{1,3}).*_video-H265'
+                      r'.*num_packets_received\s(\d+)'
+                      r'.*num_packets_lost\s(\d+)'
+                      r'.*kbits_per_second_min\s(.*?)\n'
+                      r'.*kbits_per_second_ave\s(.*?)\n'
+                      r'.*kbits_per_second_max\s(.*?)\n'
+                      r'.*inter_packet_gap_ms_min\s(.*?)\n'
+                      r'.*inter_packet_gap_ms_ave\s(.*?)\n'
+                      r'.*inter_packet_gap_ms_max\s(.*?)\n', stat, re.S).groups()
 
     return {'trial': int(groups[0]),
-            'packets_received': int(groups[1]),
-            'packets_lost': int(groups[2]),
-            'bitrate_min': float(groups[3].strip()),
-            'bitrate_avg': float(groups[4].strip()),
-            'bitrate_max': float(groups[5].strip()),
-            'inter_packet_gap_min': float(groups[6].strip()),
-            'inter_packet_gap_avg': float(groups[7].strip()),
-            'inter_packet_gap_max': float(groups[8].strip())}
+            cam_name + '_packets_received': int(groups[1]),
+            cam_name + '_packets_lost': int(groups[2]),
+            cam_name + '_bitrate_min': float(groups[3].strip()),
+            cam_name + '_bitrate_avg': float(groups[4].strip()),
+            cam_name + '_bitrate_max': float(groups[5].strip()),
+            cam_name + '_inter_packet_gap_min': float(groups[6].strip()),
+            cam_name + '_inter_packet_gap_avg': float(groups[7].strip()),
+            cam_name + '_inter_packet_gap_max': float(groups[8].strip())}
 
 
-def retrieve_server_bench_info(logs):
-    """Retrieves server bench info"""
-    return re.findall(r'(trial.*?)consecutive B-frames: 100\.0%', logs, re.S)
+def parse_server_logs(logifle_path):
+    """
+    Parses server log file.
+
+    :param string logfile_path: Server log file path.
+    :return List of parsed log entries
+    """
+    with open(logifle_path, 'r') as logfile:
+        log_entries = retrieve_log_entries(logfile.read())
+
+    return [parse_log_entry(e) for e in log_entries]
 
 
-def parse_server_trials(trial_entries):
-    """Parses each server bench trial and returns resulting list of dicts"""
-    res_lst = []
-    for e in trial_entries:
-        res_lst.append(parse_server_trial(e))
-    return res_lst
+def retrieve_log_entries(logs):
+    """
+    Retrieves server log entries (trials).
+
+    :param string logs: Log file text.
+    :return List of log entries (string).
+    """
+    # this is for two camera config only
+    return re.findall(r'(trial.*?encoded .*? frames in .*?s \(.*? fps\),'
+                      r'.*? kb/s, Avg QP:.*?Transcoder destructed.*?Transcoder destructed)', logs, re.S)
 
 
-def parse_server_trial(e):
-    """Parses server trial and returns resulting dict"""
+def parse_log_entry(entry):
+    """
+    Parses server log entry.
 
-    groups = re.match(r'trial:\s(\d{1,3})'
-                      r'.*out_frame_width:\s(\d{3})'
-                      r'.*out_frame_height:\s(\d{3})'
-                      r'.*out_framerate:\s(\d+)'
-                      r'.*bitrate:\s(\d{3}).*UDP:\s(\d{3,4})'
-                      r'.*Max NALU size:\s(\d+)'
-                      r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)'
-                      r'\n', e, re.S).groups()
-
+    :param string entry: Server log file entry.
+    :return Dict of parsed values.
+    """
+    groups = re.match(r'^trial:\s(\d{1,3})'
+                  r'.*out_frame_width:\s(\d{3})'
+                  r'.*out_frame_height:\s(\d{3})'
+                  r'.*out_framerate:\s(\d+)'
+                  r'.*bitrate:\s(\d{3})'
+                  r'.*UDP:\s(\d{3,4})'
+                  r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)\n'
+                  r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)\n',
+                  entry, re.S).groups()
+    
     return {'trial': int(groups[0]),
             'frame_width': int(groups[1]),
             'frame_height': int(groups[2]),
             'target_fps': int(groups[3]),
             'target_bitrate': int(groups[4]),
             'datagram_size': float(groups[5]),
-            'nalu': int(groups[6]),
-            'avg_qp': float(groups[7].strip()),
-            'codec_bitrate': float(groups[8].strip())}
+            'avg_qp_right_cam': float(groups[6].strip()),
+            'codec_bitrate_right_cam': float(groups[7].strip()),
+            'avg_qp_left_cam': float(groups[8].strip()),
+            'codec_bitrate_left_cam': float(groups[9].strip())}
 
 
-def join_client_server_benchmarks(client_bench, server_bench):
+def merge_dicts_list(fst, snd):
     """
-    Joins client and server log information considering 'trial' number.
+    Merges two lists of dicts.
 
-    See https://stackoverflow.com/questions/38987/how-to-merge-two-dictionaries-in-a-single-expression#26853961
+    :param fst: List of dicts.
+    :param snd: List of dicst.
+    :return Merged `fst` and `snd` dicts.
     """
+    if len(fst) != len(snd):
+        raise ValueError('client and server data must have equal size')
 
-    res_list = []
+    res_lst = []
 
-    if len(client_bench) != len(server_bench):
-        raise ValueError('client and server dicts sizes must be equal')
+    for x in xrange(len(fst)):
+        assert fst[x]['trial'] == snd[x]['trial']
+        res_dict = fst[x].copy()
+        res_dict.update(snd[x])
+        res_lst.append(res_dict)
 
-    for x in xrange(len(client_bench)):
-        assert client_bench[x]['trial'] == server_bench[x]['trial']
-        res_dict = client_bench[x].copy()
-        res_dict.update(server_bench[x])
-        ordered_res_dict = collections.OrderedDict(reversed(sorted(res_dict.items())))
-        res_list.append(ordered_res_dict)
+    return res_lst
 
-    return res_list
 
+def retrieve_values(dict_list, val_name):
+    """
+    Retrieves a slice of values with key `val_name` form list of dicts.
+
+    :param dict_list: list of dicts.
+    :param val_name: dict's key for which a slice must be retrieved.
+    :return a slice(list) of values for the specified key among dicts.
+    """
+    return list(map(lambda x: x[val_name], dict_list))
+
+
+def save_excel(filename, headers, data):
+        """
+        Saves 
+        """
+        df_data = {}
+
+        for header in headers:
+            df_data[header] = retrieve_values(data, header)
+
+        data_frame = pd.DataFrame(df_data)
+        writer = pd.ExcelWriter(filename)
+        data_frame.to_excel(writer, 'Sheet1', index=False)
+        writer.save()
+
+
+def main():
+    one_pass = merge_dicts_list(parse_client_logs('stereo_logs/left_camera_output.log', 'left_cam') ,parse_server_logs('stereo_logs/server_output.log'))
+    res = merge_dicts_list(parse_client_logs('stereo_logs/right_camera_output.log', 'right_cam') , one_pass)
+    save_excel('stereo_logs/Benchmark-stereo-results.xlsx', res[0].keys(), res)
 
 if __name__ == '__main__':
-
-    with open(SERVER_LOG_FILE, 'r', FILE_IO_BUF_SIZE) as server_log:
-        server_logs = retrieve_server_bench_info(server_log.read())
-
-    with open(CLIENT_LOG_FILE, 'r', FILE_IO_BUF_SIZE) as client_log:
-        qos_stats = retrieve_client_qos_stats(client_log.read())
-
-    # save parsed logs as json file
-    with open(PARSED_DATA_FILE, 'wb', FILE_IO_BUF_SIZE) as result_file:
-        json.dump(join_client_server_benchmarks(parse_client_bench_trials(qos_stats), parse_server_trials(server_logs)), result_file, indent=True)
+    main()
