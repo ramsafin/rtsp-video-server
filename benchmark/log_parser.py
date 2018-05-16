@@ -140,7 +140,7 @@ def retrieve_values(dict_list, val_name):
     Retrieves a slice of values with key `val_name` form list of dicts.
 
     :param dict_list: list of dicts.
-    :param val_name: dict's key for which a slice must be retrieved.
+    :param string val_name: dict's key for which a slice must be retrieved.
     :return a slice(list) of values for the specified key among dicts.
     """
     return list(map(lambda x: x[val_name], dict_list))
@@ -148,7 +148,11 @@ def retrieve_values(dict_list, val_name):
 
 def save_excel(filename, headers, data):
         """
-        Saves 
+        Exports parsed data into an excel file.
+
+        :param string filename: Excel file name.
+        :param headers: List of excel table headers.
+        :param data: parsed data. 
         """
         df_data = {}
 
