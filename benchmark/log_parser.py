@@ -1,9 +1,6 @@
 import re
-import json
-import collections
+
 import pandas as pd
-import openpyxl
-import json
 
 
 def parse_client_logs(logfile_path, cam_name):
@@ -22,7 +19,7 @@ def parse_client_logs(logfile_path, cam_name):
 
 def retrieve_qos_stats(logs):
     """
-    Retrieves entries of clinet's QoS statistics.
+    Retrieves entries of client's QoS statistics.
 
     :param string logs: Log file text.
     :return List of entries with QoS stats.
@@ -32,7 +29,7 @@ def retrieve_qos_stats(logs):
 
 def parse_qos_stat(stat, cam_name):
     """
-    Parses clinet's QoS stat entry.
+    Parses client's QoS stat entry.
 
     :param string stat: one entry of QoS statistics.
     :param string cam_name: Parsed data's camera name.
@@ -46,27 +43,30 @@ def parse_qos_stat(stat, cam_name):
                       r'.*kbits_per_second_max\s(.*?)\n'
                       r'.*inter_packet_gap_ms_min\s(.*?)\n'
                       r'.*inter_packet_gap_ms_ave\s(.*?)\n'
-                      r'.*inter_packet_gap_ms_max\s(.*?)\n', stat, re.S).groups()
+                      r'.*inter_packet_gap_ms_max\s(.*?)\n',
+                      stat, re.S).groups()
 
-    return {'trial': int(groups[0]),
-            cam_name + '_packets_received': int(groups[1]),
-            cam_name + '_packets_lost': int(groups[2]),
-            cam_name + '_bitrate_min': float(groups[3].strip()),
-            cam_name + '_bitrate_avg': float(groups[4].strip()),
-            cam_name + '_bitrate_max': float(groups[5].strip()),
-            cam_name + '_inter_packet_gap_min': float(groups[6].strip()),
-            cam_name + '_inter_packet_gap_avg': float(groups[7].strip()),
-            cam_name + '_inter_packet_gap_max': float(groups[8].strip())}
+    return {
+        'trial': int(groups[0]),
+        cam_name + '_pkts_recv': int(groups[1]),
+        cam_name + '_pkts_lost': int(groups[2]),
+        cam_name + '_b_min': float(groups[3].strip()),
+        cam_name + '_b_avg': float(groups[4].strip()),
+        cam_name + '_b_max': float(groups[5].strip()),
+        cam_name + '_pkt_gap_min': float(groups[6].strip()),
+        cam_name + '_pkt_gap_avg': float(groups[7].strip()),
+        cam_name + '_pkt_gap_max': float(groups[8].strip())
+    }
 
 
-def parse_server_logs(logifle_path):
+def parse_server_logs(logfile_path):
     """
     Parses server log file.
 
     :param string logfile_path: Server log file path.
     :return List of parsed log entries
     """
-    with open(logifle_path, 'r') as logfile:
+    with open(logfile_path, 'r') as logfile:
         log_entries = retrieve_log_entries(logfile.read())
 
     return [parse_log_entry(e) for e in log_entries]
@@ -92,25 +92,25 @@ def parse_log_entry(entry):
     :return Dict of parsed values.
     """
     groups = re.match(r'^trial:\s(\d{1,3})'
-                  r'.*out_frame_width:\s(\d{3})'
-                  r'.*out_frame_height:\s(\d{3})'
-                  r'.*out_framerate:\s(\d+)'
-                  r'.*bitrate:\s(\d{3})'
-                  r'.*UDP:\s(\d{3,4})'
-                  r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)\n'
-                  r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)\n',
-                  entry, re.S).groups()
-    
+                      r'.*out_frame_width:\s(\d{3})'
+                      r'.*out_frame_height:\s(\d{3})'
+                      r'.*out_framerate:\s(\d+)'
+                      r'.*bitrate:\s(\d{3})'
+                      r'.*UDP:\s(\d{3,4})'
+                      r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)\n'
+                      r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)\n',
+                      entry, re.S).groups()
+
     return {'trial': int(groups[0]),
-            'frame_width': int(groups[1]),
-            'frame_height': int(groups[2]),
-            'target_fps': int(groups[3]),
-            'target_bitrate': int(groups[4]),
-            'datagram_size': float(groups[5]),
-            'avg_qp_right_cam': float(groups[6].strip()),
-            'codec_bitrate_right_cam': float(groups[7].strip()),
-            'avg_qp_left_cam': float(groups[8].strip()),
-            'codec_bitrate_left_cam': float(groups[9].strip())}
+            'width': int(groups[1]),
+            'height': int(groups[2]),
+            'fps': int(groups[3]),
+            'bitrate': int(groups[4]),
+            'pkt_size': float(groups[5]),
+            'avg_qp_r': float(groups[6].strip()),
+            'codec_bitrate_r': float(groups[7].strip()),
+            'avg_qp_l': float(groups[8].strip()),
+            'codec_bitrate_l': float(groups[9].strip())}
 
 
 def merge_dicts_list(fst, snd):
@@ -118,8 +118,9 @@ def merge_dicts_list(fst, snd):
     Merges two lists of dicts.
 
     :param fst: List of dicts.
-    :param snd: List of dicst.
+    :param snd: List of dicts.
     :return Merged `fst` and `snd` dicts.
+    :raise ValueError: in case of merging data sizes are not equal.
     """
     if len(fst) != len(snd):
         raise ValueError('client and server data must have equal size')
@@ -139,36 +140,38 @@ def retrieve_values(dict_list, val_name):
     """
     Retrieves a slice of values with key `val_name` form list of dicts.
 
-    :param dict_list: list of dicts.
-    :param string val_name: dict's key for which a slice must be retrieved.
+    :param dict_list: List of dicts.
+    :param string val_name: Dict's key for which a slice must be retrieved.
     :return a slice(list) of values for the specified key among dicts.
     """
     return list(map(lambda x: x[val_name], dict_list))
 
 
 def save_excel(filename, headers, data):
-        """
-        Exports parsed data into an excel file.
+    """
+    Exports parsed data into an excel file.
 
-        :param string filename: Excel file name.
-        :param headers: List of excel table headers.
-        :param data: parsed data. 
-        """
-        df_data = {}
+    :param string filename: Excel file name.
+    :param headers: List of excel table headers.
+    :param data: parsed data.
+    """
+    df_data = {}
 
-        for header in headers:
-            df_data[header] = retrieve_values(data, header)
+    for header in headers:
+        df_data[header] = retrieve_values(data, header)
 
-        data_frame = pd.DataFrame(df_data)
-        writer = pd.ExcelWriter(filename)
-        data_frame.to_excel(writer, 'Sheet1', index=False)
-        writer.save()
+    data_frame = pd.DataFrame(df_data)
+    writer = pd.ExcelWriter(filename)
+    data_frame.to_excel(writer, 'Sheet1', index=False)
+    writer.save()
 
 
 def main():
-    one_pass = merge_dicts_list(parse_client_logs('stereo_logs/left_camera_output.log', 'left_cam') ,parse_server_logs('stereo_logs/server_output.log'))
-    res = merge_dicts_list(parse_client_logs('stereo_logs/right_camera_output.log', 'right_cam') , one_pass)
+    one_pass = merge_dicts_list(parse_client_logs('stereo_logs/left_camera_output.log', 'left_cam'),
+                                parse_server_logs('stereo_logs/server_output.log'))
+    res = merge_dicts_list(parse_client_logs('stereo_logs/right_camera_output.log', 'right_cam'), one_pass)
     save_excel('stereo_logs/Benchmark-stereo-results.xlsx', res[0].keys(), res)
+
 
 if __name__ == '__main__':
     main()
