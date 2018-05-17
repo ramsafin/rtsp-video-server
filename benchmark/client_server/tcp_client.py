@@ -10,8 +10,6 @@ HOST_PORT = ('10.42.0.1', 15555)
 # socket buffer size
 BUFFER_SIZE = 1024
 
-CHECK_OPEN_RTSP_CALL = 'openRTSP -d 10 rtsp://10.42.0.1:8554/{}'
-
 
 # wait for data from the socket
 def wait_for_data(sock, sleep_sec=1):
@@ -50,16 +48,6 @@ if __name__ == '__main__':
 
                         try:
 
-                            print 'Check availability of the server resource...'
-
-                            with open('/dev/null') as FNULL:
-                                subprocess.check_call(CHECK_OPEN_RTSP_CALL.format('left_cam').split(),
-                                                      stdout=FNULL,
-                                                      stderr=subprocess.STDOUT)
-                                subprocess.check_call(CHECK_OPEN_RTSP_CALL.format('right_cam').split(),
-                                                      stdout=FNULL,
-                                                      stderr=subprocess.STDOUT)
-
                             print "Launch openRTSP for the left camera ..."
 
                             open_rtsp_left_process = subprocess.Popen(server_data.format('left', 'left_cam').split(),
@@ -77,6 +65,11 @@ if __name__ == '__main__':
                             exit_codes = [p.wait() for p in open_rtsp_left_process, open_rtsp_right_process]
 
                             print 'Exit codes:', exit_codes
+
+                            success_codes = [e for e in exit_codes if e == 0]
+
+                            if len(success_codes) != 2:
+                                raise Exception('Exit codes are not all zeros - openRTSP')
 
                             print "Send FINISHED signal ..."
                             break
