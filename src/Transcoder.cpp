@@ -240,7 +240,7 @@ namespace LIRS {
         AVDictionary *options = nullptr;
 
         // the faster you get, the less compression is achieved
-        av_dict_set(&options, "preset", "veryfast", 0);
+        av_dict_set(&options, "preset", "ultrafast", 0);
 
         // optimization for fast encoding and low latency streaming
         av_dict_set(&options, "tune", "zerolatency", 0);

@@ -45,12 +45,11 @@ namespace LIRS {
 
         constexpr static unsigned int DEFAULT_NUM_SLICES = 1;
 
-        constexpr static char const *CODEC_PARAMS_PATTERN = "slices=%d:intra-refresh=%d:vbv-maxrate=%d:vbv-bufsize=%d";
+        constexpr static char const *CODEC_PARAMS_PATTERN = "vbv-maxrate=%d:vbv-bufsize=%d";
 
         std::string get_codec_params_str() const {
             char formattedStr[512];
-            sprintf(formattedStr, CODEC_PARAMS_PATTERN, (int) number_of_slices, intra_refresh_enabled,
-                    (int) estimated_bitrate_kbps, (int) vbv_bufsize_bytes);
+            sprintf(formattedStr, CODEC_PARAMS_PATTERN, (int) estimated_bitrate_kbps, (int) vbv_bufsize_bytes);
 
             LOG(INFO) << "Set codec params to: " << formattedStr;
 
