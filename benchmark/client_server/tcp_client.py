@@ -22,9 +22,11 @@ def wait_for_data(sock, sleep_sec=1):
 
 if __name__ == '__main__':
 
-    with open('left_camera_output.log', 'b') as left_cam_logfile:
+    sleep(60 * 140)
 
-        with open('right_camera_output.log', 'b') as right_cam_logfile:
+    with open('left_camera_output.log', 'w') as left_cam_logfile:
+
+        with open('right_camera_output.log', 'w') as right_cam_logfile:
 
             s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
