@@ -34,7 +34,7 @@ if __name__ == '__main__':
 
             while True:
 
-                print "Waiting for command form server..."
+                print "Waiting for command from server..."
 
                 server_data = wait_for_data(s)
 
