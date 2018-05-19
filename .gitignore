@@ -10,3 +10,4 @@ RTSPServer
 build/
 testenv/
 .DS_Store
+~*
