@@ -11,3 +11,4 @@ build/
 testenv/
 .DS_Store
 ~*
+*.xlsx
