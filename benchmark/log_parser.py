@@ -176,7 +176,7 @@ def main():
     one_pass = merge_dicts_list(parse_client_logs(LEFT_CAM_LOG_FILE, 'left_cam'),
                                 parse_server_logs(SERVER_LOG_FILE))
     res = merge_dicts_list(parse_client_logs(RIGHT_CAM_LOG_FILE, 'right_cam'), one_pass)
-    save_excel('stereo_logs/Benchmark-stereo-results.xlsx', res[0].keys(), res)
+    save_excel(EXCEL_FILE, res[0].keys(), res)
 
 
 if __name__ == '__main__':
