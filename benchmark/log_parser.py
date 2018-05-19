@@ -3,6 +3,12 @@ import re
 import pandas as pd
 
 
+LEFT_CAM_LOG_FILE = 'results/stereo_logs_3/left_camera_output.log'
+RIGHT_CAM_LOG_FILE = 'results/stereo_logs_3/right_camera_output.log'
+SERVER_LOG_FILE = 'results/stereo_logs_3/server_output.log'
+EXCEL_FILE = 'results/stereo_logs_3/Benchmark-stereo-results.xlsx'
+
+
 def parse_client_logs(logfile_path, cam_name):
     """
     Parses client log file located at `logfile_path`.
@@ -167,9 +173,9 @@ def save_excel(filename, headers, data):
 
 
 def main():
-    one_pass = merge_dicts_list(parse_client_logs('stereo_logs/left_camera_output.log', 'left_cam'),
-                                parse_server_logs('stereo_logs/server_output.log'))
-    res = merge_dicts_list(parse_client_logs('stereo_logs/right_camera_output.log', 'right_cam'), one_pass)
+    one_pass = merge_dicts_list(parse_client_logs(LEFT_CAM_LOG_FILE, 'left_cam'),
+                                parse_server_logs(SERVER_LOG_FILE))
+    res = merge_dicts_list(parse_client_logs(RIGHT_CAM_LOG_FILE, 'right_cam'), one_pass)
     save_excel('stereo_logs/Benchmark-stereo-results.xlsx', res[0].keys(), res)
 
 
