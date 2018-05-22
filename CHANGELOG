@@ -1,3 +1,7 @@
+0.1.1 (May 22, 2018)
+
+- Fixed compile-time error due to incorrect project version number.
+
 0.1.0 (May 18, 2018)
 
 - Initial RTSP server is implemented based on Live555/FFmpeg.
