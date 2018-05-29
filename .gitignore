@@ -5,10 +5,10 @@ CMakeFiles/
 Makefile
 cmake_install.cmake
 *.cbp
-*.log
 *.json
 RTSPServer
 build/
 testenv/
 .DS_Store
+~*
 *.xlsx

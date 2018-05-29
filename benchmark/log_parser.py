@@ -2,6 +2,19 @@ import re
 
 import pandas as pd
 
+from collections import OrderedDict
+
+from openpyxl import load_workbook
+
+import os.path
+
+
+LEFT_CAM_LOG_FILE = 'results/stereo_logs_3/left_camera_output.log'
+RIGHT_CAM_LOG_FILE = 'results/stereo_logs_3/right_camera_output.log'
+SERVER_LOG_FILE = 'results/stereo_logs_3/server_output.log'
+EXCEL_FILE = 'results/Benchmark-stereo-results.xlsx'
+EXCEL_SHEET_NAME = 'Experiment #3'
+
 
 def parse_client_logs(logfile_path, cam_name):
     """
@@ -50,10 +63,10 @@ def parse_qos_stat(stat, cam_name):
         'trial': int(groups[0]),
         cam_name + '_pkts_recv': int(groups[1]),
         cam_name + '_pkts_lost': int(groups[2]),
-        cam_name + '_b_min': float(groups[3].strip()),
-        cam_name + '_b_avg': float(groups[4].strip()),
-        cam_name + '_b_max': float(groups[5].strip()),
-        cam_name + '_pkt_gap_min': float(groups[6].strip()),
+        # cam_name + '_b_min': float(groups[3].strip()),
+        # cam_name + '_b_avg': float(groups[4].strip()),
+        # cam_name + '_b_max': float(groups[5].strip()),
+        # cam_name + '_pkt_gap_min': float(groups[6].strip()),
         cam_name + '_pkt_gap_avg': float(groups[7].strip()),
         cam_name + '_pkt_gap_max': float(groups[8].strip())
     }
@@ -101,16 +114,18 @@ def parse_log_entry(entry):
                       r'.*x265 \[info\]: frame I:.*, Avg QP:(.*?)\skb/s: (.*?)\n',
                       entry, re.S).groups()
 
-    return {'trial': int(groups[0]),
-            'width': int(groups[1]),
-            'height': int(groups[2]),
-            'fps': int(groups[3]),
-            'bitrate': int(groups[4]),
-            'pkt_size': float(groups[5]),
-            'avg_qp_r': float(groups[6].strip()),
-            'codec_bitrate_r': float(groups[7].strip()),
-            'avg_qp_l': float(groups[8].strip()),
-            'codec_bitrate_l': float(groups[9].strip())}
+    return {
+        'trial': int(groups[0]),
+        'width': int(groups[1]),
+        'height': int(groups[2]),
+        'fps': int(groups[3]),
+        'bitrate': int(groups[4]),
+        'pkt_size': float(groups[5]),
+        'right_avg_qp': float(groups[6].strip()),
+        # 'codec_bitrate_r': float(groups[7].strip()),
+        'left_avg_qp': float(groups[8].strip())
+        # 'codec_bitrate_l': float(groups[9].strip())
+    }
 
 
 def merge_dicts_list(fst, snd):
@@ -155,22 +170,35 @@ def save_excel(filename, headers, data):
     :param headers: List of excel table headers.
     :param data: parsed data.
     """
-    df_data = {}
+
+    df_data = OrderedDict()
+
+    if os.path.isfile(filename):
+        book = load_workbook(filename)
 
     for header in headers:
         df_data[header] = retrieve_values(data, header)
 
     data_frame = pd.DataFrame(df_data)
-    writer = pd.ExcelWriter(filename)
-    data_frame.to_excel(writer, 'Sheet1', index=False)
-    writer.save()
 
+    with pd.ExcelWriter(filename, engine='openpyxl') as  writer:
+        
+        if os.path.isfile(filename):
+            writer.book = book
+            writer.sheets = dict((ws.title, ws) for ws in book.worksheets)
+
+        data_frame.to_excel(writer, sheet_name= EXCEL_SHEET_NAME, index=False)
+        writer.save()
 
 def main():
-    one_pass = merge_dicts_list(parse_client_logs('stereo_logs/left_camera_output.log', 'left_cam'),
-                                parse_server_logs('stereo_logs/server_output.log'))
-    res = merge_dicts_list(parse_client_logs('stereo_logs/right_camera_output.log', 'right_cam'), one_pass)
-    save_excel('stereo_logs/Benchmark-stereo-results.xlsx', res[0].keys(), res)
+    one_pass = merge_dicts_list(parse_client_logs(LEFT_CAM_LOG_FILE, 'left'),
+                                parse_server_logs(SERVER_LOG_FILE))
+
+    res = merge_dicts_list(parse_client_logs(RIGHT_CAM_LOG_FILE, 'right'), one_pass)
+
+    save_excel(EXCEL_FILE, ['trial', 'width', 'height', 'bitrate', 'pkt_size', 'left_pkts_lost',
+        'left_pkts_recv', 'right_pkts_lost', 'right_pkts_recv', 'left_pkt_gap_avg', 'left_pkt_gap_max',
+        'right_pkt_gap_avg', 'right_pkt_gap_max', 'left_avg_qp', 'right_avg_qp'], res)
 
 
 if __name__ == '__main__':
