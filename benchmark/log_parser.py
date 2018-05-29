@@ -166,6 +166,41 @@ def parse_pidstat(pistat_logfile):
     return map(lambda x: {'trial': stats[x]['trial'], 'pid': x, 'cpu': stats[x]['cpu']}, stats)
 
 
+def parse_pidstat_with_mem(pistat_logfile):
+
+    with open(pistat_logfile, 'r') as pidstat_is:
+        pidstat_logs = pidstat_is.read()
+
+    entries = re.split('\nLinux.*\n', pidstat_logs)
+
+    stats = OrderedDict()
+    trial_counter = 0
+
+    for entry in entries:
+        cpu_mem_entries = re.split('\n\s*\n', entry)[1:] # skip first
+        cpu_entries = [e for e in cpu_mem_entries if 'CPU' in e]
+        mem_entries = [e for e in cpu_mem_entries if 'MEM' in e]
+
+        for cpu_elem in cpu_entries:
+            groups = re.match(r'.*?\s+\d+\s+\d+\s+.*?\s+.*?\s+.*?\s+(.*?)\s', cpu_elem, re.S).groups()
+            cpu_usage = float(groups[0].strip().replace(',', '.'))
+
+            if trial_counter in stats:
+                stats[trial_counter]['cpu'] = max(stats[trial_counter]['cpu'], cpu_usage)
+            else:
+                stats[trial_counter] = {'trial': trial_counter, 'cpu': cpu_usage, 'mem': -1}
+
+        for mem_elem in mem_entries:
+            groups = re.match(r'.*?\s+\d+\s+\d+\s+.*?\s+.*?\s+.*?\s+.*?\s+(.*?)\s', mem_elem, re.S).groups()
+            mem_usage = float(groups[0].strip().replace(',', '.'))
+
+            stats[trial_counter]['mem'] = max(stats[trial_counter]['mem'], mem_usage)
+
+        trial_counter += 1
+
+    return map(lambda x: {'trial': stats[x]['trial'], 'cpu': stats[x]['cpu'], 'mem': stats[x]['mem']}, stats)
+
+
 def merge_dicts_list(fst, snd):
     """
     Merges two lists of dicts.
@@ -235,18 +270,17 @@ def main():
 
     res = merge_dicts_list(parse_client_logs(sys.argv[2], 'right'), one_pass)
 
-    res = merge_dicts_list(parse_pidstat(sys.argv[3]), res)
+    res = merge_dicts_list(parse_pidstat_with_mem(sys.argv[3]), res)
 
     save_excel(EXCEL_FILE, ['trial', 'width', 'height', 'fps', 'bitrate', 'pkt_size',
         'left_pkts_loss', 'right_pkts_loss',
         'left_avg_qp', 'right_avg_qp',
-        'cpu',
+        'cpu', 'mem',
         'left_pkts_lost', 'left_pkts_recv',
         'right_pkts_lost', 'right_pkts_recv',
         'left_pkt_gap_avg', 'left_pkt_gap_max',
         'right_pkt_gap_avg', 'right_pkt_gap_max'],
          res)
-
 
 if __name__ == '__main__':
     main()
