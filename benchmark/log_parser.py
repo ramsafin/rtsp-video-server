@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import re
 
 import pandas as pd
@@ -8,12 +10,16 @@ from openpyxl import load_workbook
 
 import os.path
 
+import sys
 
-LEFT_CAM_LOG_FILE = 'results/stereo_logs_3/left_camera_output.log'
-RIGHT_CAM_LOG_FILE = 'results/stereo_logs_3/right_camera_output.log'
-SERVER_LOG_FILE = 'results/stereo_logs_3/server_output.log'
-EXCEL_FILE = 'results/Benchmark-stereo-results.xlsx'
-EXCEL_SHEET_NAME = 'Experiment #3'
+import json
+
+
+LEFT_CAM_LOG_FILE = 'left_camera_output.log'
+RIGHT_CAM_LOG_FILE = 'right_camera_output.log'
+SERVER_LOG_FILE = 'stereo_logs/server_output.log'
+EXCEL_FILE = 'Benchmark-stereo-results.xlsx'
+EXCEL_SHEET_NAME = 'Experiment #1'
 
 
 def parse_client_logs(logfile_path, cam_name):
@@ -54,6 +60,7 @@ def parse_qos_stat(stat, cam_name):
                       r'.*kbits_per_second_min\s(.*?)\n'
                       r'.*kbits_per_second_ave\s(.*?)\n'
                       r'.*kbits_per_second_max\s(.*?)\n'
+                      r'.*packet_loss_percentage_ave\s(.*?)\n'
                       r'.*inter_packet_gap_ms_min\s(.*?)\n'
                       r'.*inter_packet_gap_ms_ave\s(.*?)\n'
                       r'.*inter_packet_gap_ms_max\s(.*?)\n',
@@ -67,8 +74,9 @@ def parse_qos_stat(stat, cam_name):
         # cam_name + '_b_avg': float(groups[4].strip()),
         # cam_name + '_b_max': float(groups[5].strip()),
         # cam_name + '_pkt_gap_min': float(groups[6].strip()),
-        cam_name + '_pkt_gap_avg': float(groups[7].strip()),
-        cam_name + '_pkt_gap_max': float(groups[8].strip())
+        cam_name + '_pkts_loss': float(groups[6].strip()),
+        cam_name + '_pkt_gap_avg': float(groups[8].strip()),
+        cam_name + '_pkt_gap_max': float(groups[9].strip())
     }
 
 
@@ -126,6 +134,36 @@ def parse_log_entry(entry):
         'left_avg_qp': float(groups[8].strip())
         # 'codec_bitrate_l': float(groups[9].strip())
     }
+
+
+def parse_pidstat(pistat_logfile):
+    
+    with open(pistat_logfile, 'r') as pidstat_is:
+        pidstat_logs = pidstat_is.read()
+
+    entries = re.split('\n\s*\n', pidstat_logs)
+
+    stats = OrderedDict()
+    trial_counter = 0
+
+    for entry in entries:
+        
+        elems = re.findall(r'.*? RTSPServer\n', entry)
+        
+        for e in elems:
+            #                                PID                       CPU
+            groups = re.match(r'.*?\s+\d+\s+(.*?)\s+.*?\s+.*?\s+.*?\s+(.*?)\s', e, re.S).groups()
+            
+            pid = int(groups[0].strip())
+            cpu_usage = float(groups[1].strip().replace(',', '.'))
+
+            if pid in stats:
+                stats[pid]['cpu'] = max(stats[pid]['cpu'], cpu_usage)
+            else:
+                stats[pid] = {'trial': trial_counter, 'cpu': cpu_usage}
+                trial_counter += 1
+
+    return map(lambda x: {'trial': stats[x]['trial'], 'pid': x, 'cpu': stats[x]['cpu']}, stats)
 
 
 def merge_dicts_list(fst, snd):
@@ -191,14 +229,23 @@ def save_excel(filename, headers, data):
         writer.save()
 
 def main():
-    one_pass = merge_dicts_list(parse_client_logs(LEFT_CAM_LOG_FILE, 'left'),
-                                parse_server_logs(SERVER_LOG_FILE))
 
-    res = merge_dicts_list(parse_client_logs(RIGHT_CAM_LOG_FILE, 'right'), one_pass)
+    one_pass = merge_dicts_list(parse_client_logs(sys.argv[1], 'left'),
+                                parse_server_logs(sys.argv[4]))
 
-    save_excel(EXCEL_FILE, ['trial', 'width', 'height', 'bitrate', 'pkt_size', 'left_pkts_lost',
-        'left_pkts_recv', 'right_pkts_lost', 'right_pkts_recv', 'left_pkt_gap_avg', 'left_pkt_gap_max',
-        'right_pkt_gap_avg', 'right_pkt_gap_max', 'left_avg_qp', 'right_avg_qp'], res)
+    res = merge_dicts_list(parse_client_logs(sys.argv[2], 'right'), one_pass)
+
+    res = merge_dicts_list(parse_pidstat(sys.argv[3]), res)
+
+    save_excel(EXCEL_FILE, ['trial', 'width', 'height', 'fps', 'bitrate', 'pkt_size',
+        'left_pkts_loss', 'right_pkts_loss',
+        'left_avg_qp', 'right_avg_qp',
+        'cpu',
+        'left_pkts_lost', 'left_pkts_recv',
+        'right_pkts_lost', 'right_pkts_recv',
+        'left_pkt_gap_avg', 'left_pkt_gap_max',
+        'right_pkt_gap_avg', 'right_pkt_gap_max'],
+         res)
 
 
 if __name__ == '__main__':
