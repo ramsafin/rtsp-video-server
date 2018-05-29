@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import re
 import socket
 from time import sleep
 
@@ -8,7 +9,7 @@ import subprocess32 as subprocess
 HOST_PORT = ('10.42.0.1', 15555)
 
 # socket buffer size
-BUFFER_SIZE = 1024
+BUFFER_SIZE = 512
 
 
 # wait for data from the socket
@@ -21,8 +22,6 @@ def wait_for_data(sock, sleep_sec=1):
 
 
 if __name__ == '__main__':
-
-    sleep(60 * 140)
 
     with open('left_camera_output.log', 'w') as left_cam_logfile:
 
@@ -46,9 +45,19 @@ if __name__ == '__main__':
                     break
                 else:
 
+                    trial_num = re.match(r'.*?trial_(\d+)_.*', server_data, re.S).groups()[0]
+
                     while True:
 
                         try:
+
+                            print "Starting tshark ..."
+
+                            tshark_process = subprocess.Popen(['tshark', '-i', 'wlan0', '-f',
+                                                               '(udp[8] & 0x80 == 0x80) or tcp', '-w',
+                                                               'wireshark_logs_trial_{}.pcap'.format(trial_num)])
+
+                            sleep(5)
 
                             print "Launch openRTSP for the left camera ..."
 
@@ -73,7 +82,12 @@ if __name__ == '__main__':
                             if len(success_codes) != 2:
                                 raise Exception('Exit codes are not all zeros - openRTSP')
 
+                            tshark_process.terminate()
+
+                            tshark_process.wait()
+
                             print "Send FINISHED signal ..."
+
                             break
                         except Exception as e:
                             print str(e)
