@@ -3,16 +3,15 @@ import json
 # benchmark's parameters
 JSON_OUT_FILE_NAME = 'benchmark.json'
 
-# resolutions = [(240, 180), (320, 240), (480, 360), (640, 480)]
 resolutions = [(240, 180), (480, 360), (640, 480)]
 
-frame_rates = [3, 5, 7, 9, 15]
+frame_rates = [4, 7, 10, 12]
 
-bit_rates = [100, 200, 300, 400, 500]
+bit_rates = [100, 200, 300, 400, 600, 800]
 
-buf_size_factor = 2
+buf_size_factor = 2.5
 
-udp_datagram_sizes = [500, 1000, 1500, 2000]
+udp_datagram_sizes = [500, 1000, 1500, 2200]
 
 trial_num = 0
 
@@ -39,5 +38,5 @@ for (w, h) in resolutions:
                 benchmark['benchmark'].append(trial)
 
 # convert benchmark to a json and write it to the file
-with open(JSON_OUT_FILE_NAME, 'wb') as outfile:
+with open(JSON_OUT_FILE_NAME, 'w') as outfile:
     json.dump(benchmark, outfile, indent=True)
