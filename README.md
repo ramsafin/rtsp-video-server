@@ -54,6 +54,8 @@ The most time- and nerve-consuming part, installing FFMpeg ...:
 cd scripts && chmod +x *
 
 ./install_ffmpeg_with_deps.sh
+
+cd ..
 ```
 
 ### Build
