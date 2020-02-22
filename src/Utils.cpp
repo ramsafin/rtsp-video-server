@@ -1,7 +1,7 @@
-#include "Utils.hpp"
+#include "utils/Utils.hpp"
 #include <sstream>
 
-namespace LIRS {
+namespace lirs {
 
     namespace utils {
 

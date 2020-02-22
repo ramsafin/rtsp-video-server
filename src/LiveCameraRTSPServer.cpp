@@ -2,11 +2,10 @@
 
 namespace LIRS {
 
-    LiveCameraRTSPServer::LiveCameraRTSPServer(unsigned int port, int httpPort) :
-            rtspPort(port), httpTunnelingPort(httpPort), watcher(0),
-            scheduler(nullptr), env(nullptr), server(nullptr) {
+    LiveCameraRTSPServer::LiveCameraRTSPServer(lirs::config::params::ServerParameters const &config) : watcher(0),
+            scheduler(nullptr), env(nullptr), server(nullptr), config(config) {
 
-        OutPacketBuffer::maxSize = OUT_PACKET_BUFFER_MAX_SIZE_BYTES;
+        OutPacketBuffer::maxSize = config.getMaxBufSize();
 
         LOG(DEBUG) << "Setting OutPacketBuffer max size to " << OutPacketBuffer::maxSize << " (bytes)";
 
@@ -19,7 +18,7 @@ namespace LIRS {
 
         Medium::close(server); // deletes all server media sessions
 
-        // delete all framed sources
+        // close all framed sources
         for (auto &src : allocatedVideoSources) {
             if (src) Medium::close(src);
         }
@@ -42,10 +41,6 @@ namespace LIRS {
         watcher = 's';
     }
 
-    void LiveCameraRTSPServer::addTranscoder(Transcoder &transcoder) {
-        transcoders.push_back(&transcoder);
-    }
-
     void LiveCameraRTSPServer::run() {
 
         if (server) {
@@ -56,19 +51,19 @@ namespace LIRS {
         }
 
         // create server listening on the specified RTSP port
-        server = RTSPServer::createNew(*env, rtspPort);
+        server = RTSPServer::createNew(*env, config.getRtspPortNum());
 
         if (!server) {
             LOG(ERROR) << "Failed to create RTSP server: " << env->getResultMsg();
             exit(1);
         }
 
-        LOG(DEBUG) << "Server has been created on port " << rtspPort;
+        LOG(DEBUG) << "Server has been created on port " << config.getRtspPortNum();
 
-        if (httpTunnelingPort != -1) { // set up HTTP tunneling (see Live555 docs)
-            auto res = server->setUpTunnelingOverHTTP(httpTunnelingPort);
+        if (config.isHttpEnabled()) { // set up HTTP tunneling (see Live555 docs)
+            auto res = server->setUpTunnelingOverHTTP(config.getHttpPortNum());
             if (res) {
-                LOG(INFO) << "Enabled HTTP tunneling over: " << httpTunnelingPort;
+                LOG(INFO) << "Enabled HTTP tunneling over: " << config.getHttpPortNum();
             }
         }
 
@@ -76,7 +71,7 @@ namespace LIRS {
 
         // create media session for each video source (transcoder)
         for (auto &transcoder : transcoders) {
-            addMediaSession(transcoder, transcoder->getCameraName(), "stream description");
+            addMediaSession(transcoder, transcoder->getConfig().getName(), "stream description");
         }
 
         env->taskScheduler().doEventLoop(&watcher); // do not return
@@ -88,10 +83,10 @@ namespace LIRS {
         delete[] url;
     }
 
-    void LiveCameraRTSPServer::addMediaSession(Transcoder *transcoder, const std::string &streamName,
+    void LiveCameraRTSPServer::addMediaSession(std::shared_ptr<Transcoder> transcoder, const std::string &streamName,
                                                const std::string &streamDesc) {
 
-        LOG(DEBUG) << "Adding media session for camera: " << transcoder->getCameraName();
+        LOG(DEBUG) << "Adding media session for camera: " << transcoder->getConfig().getName();
 
         // create framed source for camera
         auto framedSource = LiveCamFramedSource::createNew(*env, *transcoder);
@@ -107,12 +102,17 @@ namespace LIRS {
                                                  False, "a=fmtp:96\n");
 
         // add unicast subsession
-        sms->addSubsession(CameraUnicastServerMediaSubsession::createNew(*env, replicator, estimatedBitrate, udpDatagramSize));
+        sms->addSubsession(CameraUnicastServerMediaSubsession::createNew(*env, replicator,
+                                                                         transcoder->getConfig().getEncoderParams().getBitrate(), config.getMaxPacketSize()));
 
         server->addServerMediaSession(sms);
 
         // announce stream
-        announceStream(sms, transcoder->getCameraName());
+        announceStream(sms, transcoder->getConfig().getName());
+    }
+
+    void LiveCameraRTSPServer::addTranscoder(std::shared_ptr<Transcoder> transcoder) {
+        transcoders.emplace_back(transcoder);
     }
 
 }

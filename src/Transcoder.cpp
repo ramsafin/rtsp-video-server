@@ -4,30 +4,23 @@
 namespace LIRS {
 
     Transcoder::~Transcoder() {
-
         stop();
-
         cleanup();
-
-        LOG(WARN) << "Transcoder destructed: " << cameraName;
+        LOG(INFO) << config.getName() << " is destructed.";
     }
 
-    Transcoder::Transcoder(const Configuration &config, std::string const &cameraName, std::string const &cameraUrl)
-            : config(config), cameraName(cameraName), cameraUrl(cameraUrl), needToStopFlag(false),
+    Transcoder::Transcoder(lirs::config::params::CameraParameters const &config)
+            : config(config), needToStopFlag(false),
               isRunningFlag(false) {
 
-        LOG(DEBUG) << "Constructing transcoder for " << cameraUrl;
-
         // get the pixel format enum
-        this->rawPixFormat = av_get_pix_fmt(config.get_pixel_format().c_str());
-        this->encoderPixFormat = av_get_pix_fmt(config.get_codec_pixel_format().c_str());
+        this->rawPixFormat = av_get_pix_fmt(config.getInputParams().getPixelFormat().data());
+        this->encoderPixFormat = av_get_pix_fmt(config.getOutputParams().getPixelFormat().data());
+
         assert(rawPixFormat != AV_PIX_FMT_NONE && encoderPixFormat != AV_PIX_FMT_NONE);
 
-        LOG(DEBUG) << "Set pixel formats of the camera original/codec: " << config.get_pixel_format() << "/"
-                   << config.get_codec_pixel_format();
-
         //set framerate
-        frameRate = (AVRational) {static_cast<int>(config.get_framerate()), 1};
+        frameRate = (AVRational) {static_cast<int>(config.getInputParams().getFrameRate().first), 1};
 
         registerAll();
 
@@ -46,59 +39,70 @@ namespace LIRS {
         isRunningFlag.store(true);
 
         // read raw data from the device into the packet
-        while (!needToStopFlag.load() && av_read_frame(decoderContext.formatContext, decodingPacket) == 0) {
+        while (!needToStopFlag.load()) {
+
+            int statusCode = av_read_frame(decoderContext.formatContext, decodingPacket);
+
+            if (statusCode != 0) {
+                av_packet_unref(decodingPacket);
+                continue;
+            }
 
             // check whether it is a video stream's data
             if (decodingPacket->stream_index == decoderContext.videoStream->index) {
 
-                // fill raw frame with data from decoded packet
-                if (decode(decoderContext.codecContext, rawFrame, decodingPacket)) {
+                statusCode = decode(decoderContext.codecContext, rawFrame, decodingPacket);
 
-                    // push frames to the buffer
-                    int statusCode = av_buffersrc_add_frame_flags(bufferSrcCtx, rawFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
+                av_packet_unref(decodingPacket);
 
-                    if (statusCode < 0) continue; // workaround for buggy cameras
+                if (statusCode == 0) {
+                    continue;
+                }
 
-                    // pull frames from the filter graph
-                    while (true) {
+                // push frames to the buffer
+                statusCode = av_buffersrc_add_frame_flags(bufferSrcCtx, rawFrame, AV_BUFFERSRC_FLAG_KEEP_REF);
 
-                        statusCode = av_buffersink_get_frame(bufferSinkCtx, filterFrame);
+                if (statusCode < 0) { // workaround for buggy cameras
+                    av_frame_unref(filterFrame);
+                    continue;
+                }
 
-                        if (statusCode == AVERROR(EAGAIN) || statusCode == AVERROR_EOF) {
-                            break;
+                // pull frames from the filter graph
+                while (true) {
+
+                    statusCode = av_buffersink_get_frame(bufferSinkCtx, filterFrame);
+
+                    if (statusCode == AVERROR(EAGAIN) || statusCode == AVERROR_EOF) {
+                        av_frame_unref(filterFrame);
+                        break;
+                    }
+
+                    av_frame_make_writable(convertedFrame);
+
+                    // convert raw frame into another pixel format
+                    sws_scale(converterContext, reinterpret_cast<const uint8_t *const *>(filterFrame->data),
+                              filterFrame->linesize, 0, static_cast<int>(frameHeight),
+                              convertedFrame->data, convertedFrame->linesize);
+
+                    // copy pts/dts, etc.
+                    av_frame_copy_props(convertedFrame, filterFrame);
+
+                    statusCode = encode(encoderContext.codecContext, convertedFrame, encodingPacket);
+
+                    if (statusCode >= 0) {
+
+                        // new encoded data is available (one NALU)
+                        if (onEncodedDataCallback) {
+                            onEncodedDataCallback(std::vector<uint8_t>(encodingPacket->data + NALU_START_CODE_BYTES_NUMBER,
+                                                         encodingPacket->data + encodingPacket->size));
                         }
-
-                        assert(statusCode >= 0);
-
-                        av_frame_make_writable(convertedFrame);
-
-                        // convert raw frame into another pixel format
-                        sws_scale(converterContext, reinterpret_cast<const uint8_t *const *>(filterFrame->data),
-                                  filterFrame->linesize, 0, static_cast<int>(frameHeight),
-                                  convertedFrame->data, convertedFrame->linesize);
-
-                        // copy pts/dts, etc.
-                        av_frame_copy_props(convertedFrame, filterFrame);
-
-                        if (encode(encoderContext.codecContext, convertedFrame, encodingPacket) >= 0) {
-
-                            // new encoded data is available (one NALU)
-                            if (onEncodedDataCallback) {
-                                onEncodedDataCallback(
-                                        std::vector<uint8_t>(encodingPacket->data + NALU_START_CODE_BYTES_NUMBER,
-                                                             encodingPacket->data + encodingPacket->size)
-                                );
-                            }
-                        }
-
-                        av_packet_unref(encodingPacket);
                     }
 
                     av_frame_unref(filterFrame);
+                    av_packet_unref(encodingPacket);
                 }
             }
 
-            av_packet_unref(decodingPacket);
         }
 
         isRunningFlag.store(false);
@@ -132,8 +136,6 @@ namespace LIRS {
 
     void Transcoder::initializeDecoder() {
 
-        LOG(DEBUG) << "Initialize decoder of the camera " << cameraUrl;
-
         // holds the general information about the format (container)
         decoderContext.formatContext = avformat_alloc_context();
 
@@ -141,8 +143,10 @@ namespace LIRS {
 
         AVInputFormat *inputFormat = av_find_input_format("v4l2"); // using Video4Linux API for capturing
 
-        auto frameResolutionStr = utils::concatParams({config.get_frame_width(), config.get_frame_height()}, "x");
-        auto framerateStr = utils::concatParams({(size_t) frameRate.num, (size_t) frameRate.den}, "/");
+        auto frameResolutionStr = lirs::utils::concatParams({config.getInputParams().getWidth(),
+                                                             config.getInputParams().getHeight()}, "x");
+
+        auto framerateStr = lirs::utils::concatParams({(size_t) frameRate.num, (size_t) frameRate.den}, "/");
 
         AVDictionary *options = nullptr;
 
@@ -150,7 +154,7 @@ namespace LIRS {
         av_dict_set(&options, "pixel_format", av_get_pix_fmt_name(rawPixFormat), 0);
         av_dict_set(&options, "framerate", framerateStr.data(), 0);
 
-        int statCode = avformat_open_input(&decoderContext.formatContext, cameraUrl.data(),
+        int statCode = avformat_open_input(&decoderContext.formatContext, config.getResource().c_str(),
                                            inputFormat, &options);
         av_dict_free(&options);
         assert(statCode == 0);
@@ -159,7 +163,7 @@ namespace LIRS {
         statCode = avformat_find_stream_info(decoderContext.formatContext, nullptr);
         assert(statCode >= 0);
 
-        av_dump_format(decoderContext.formatContext, 0, cameraName.data(), 0);
+        av_dump_format(decoderContext.formatContext, 0, config.getResource().c_str(), 0);
 
         // find video stream (if multiple video streams are available then you should choose one manually)
         int videoStreamIndex = av_find_best_stream(decoderContext.formatContext, AVMEDIA_TYPE_VIDEO, -1, -1,
@@ -219,13 +223,13 @@ namespace LIRS {
         assert(encoderContext.codecContext);
 
         // set up parameters
-        encoderContext.codecContext->width = static_cast<int>(config.get_streaming_frame_width());
-        encoderContext.codecContext->height = static_cast<int>(config.get_streaming_frame_height());
+        encoderContext.codecContext->width = static_cast<int>(config.getOutputParams().getWidth());
+        encoderContext.codecContext->height = static_cast<int>(config.getOutputParams().getHeight());
 
         encoderContext.codecContext->profile = FF_PROFILE_HEVC_MAIN;
 
-        encoderContext.codecContext->time_base = (AVRational) {1, static_cast<int>(config.get_streaming_framerate())};
-        encoderContext.codecContext->framerate = (AVRational) {static_cast<int>(config.get_streaming_framerate()), 1};
+        encoderContext.codecContext->time_base = (AVRational) {1, static_cast<int>(config.getOutputParams().getFrameRate().first)};
+        encoderContext.codecContext->framerate = (AVRational) {static_cast<int>(config.getOutputParams().getFrameRate().first), 1};
 
         // set encoder's pixel format (it is advised to use yuv420p)
         encoderContext.codecContext->pix_fmt = encoderPixFormat;
@@ -240,16 +244,22 @@ namespace LIRS {
         AVDictionary *options = nullptr;
 
         // the faster you get, the less compression is achieved
-        av_dict_set(&options, "preset", "ultrafast", 0);
+        av_dict_set(&options, "preset", config.getEncoderParams().getPreset().c_str(), 0);
 
         // optimization for fast encoding and low latency streaming
-        av_dict_set(&options, "tune", "zerolatency", 0);
+        av_dict_set(&options, "tune", config.getEncoderParams().getTune().c_str(), 0);
 
-        av_dict_set(&options, "b", utils::to_string_with_prefix(config.get_bitrate(), "K").data(), 0);
+        av_dict_set(&options, "b", lirs::utils::to_string_with_prefix(config.getEncoderParams().getBitrate(), "K").data(), 0);
+
+        char x265_params[128];
+
+        sprintf(x265_params, "vbv-maxrate=%d:vbv-bufsize=%d",
+                config.getEncoderParams().getBitrate(), config.getEncoderParams().getVbvBufSize());
+
+        LOG(INFO) << x265_params;
 
         // set additional codec options
-        av_opt_set(encoderContext.codecContext->priv_data, "x265-params",
-                   config.get_codec_params_str().data(), 0);
+        av_opt_set(encoderContext.codecContext->priv_data, "x265-params", x265_params, 0);
 
         // open the output format to use given codec
         statCode = avcodec_open2(encoderContext.codecContext, encoderContext.codec, &options);
@@ -267,22 +277,14 @@ namespace LIRS {
         encodingPacket = av_packet_alloc();
         av_init_packet(encodingPacket);
 
-        LOG(DEBUG) << "Encoder params: width: " << config.get_streaming_frame_width() << ", height: "
-                   << config.get_streaming_frame_height() << ", pixel_fmt: "
-                   << av_get_pix_fmt_name(encoderPixFormat) << ", framerate: " << config.get_streaming_framerate();
-
     }
 
     void Transcoder::initializeConverter() {
 
-        LOG(DEBUG) << "Initialize converter " << av_get_pix_fmt_name(rawPixFormat) << " -> "
-                   << av_get_pix_fmt_name(encoderPixFormat) << ", " << frameWidth << "x" << frameHeight
-                   << " -> " << config.get_streaming_frame_width() << "x" << config.get_streaming_frame_height();
-
         // allocate frame to be used in converter
         convertedFrame = av_frame_alloc();
-        convertedFrame->width = static_cast<int>(config.get_streaming_frame_width());
-        convertedFrame->height = static_cast<int>(config.get_streaming_frame_height());
+        convertedFrame->width = static_cast<int>(config.getOutputParams().getWidth());
+        convertedFrame->height = static_cast<int>(config.getOutputParams().getHeight());
         convertedFrame->format = encoderPixFormat;
         int statCode = av_frame_get_buffer(convertedFrame, 0); // ref counted frame
         assert(statCode == 0);
@@ -340,7 +342,7 @@ namespace LIRS {
         if (this->filterQuery.empty()) {
 
             snprintf(frameStepFilterQuery, sizeof(frameStepFilterQuery), "fps=fps=%d/%d",
-                     static_cast<int>(config.get_streaming_framerate()), 1);
+                     static_cast<int>(config.getOutputParams().getFrameRate().first), 1);
 
             // add graph represented by the filter query
             status = avfilter_graph_parse(filterGraph, frameStepFilterQuery, inputs, outputs, nullptr);
@@ -454,17 +456,10 @@ namespace LIRS {
         return isRunningFlag.load();
     }
 
-    Configuration const &Transcoder::getConfig() const {
+    lirs::config::params::CameraParameters const &Transcoder::getConfig() const {
         return config;
     }
 
-    std::string const &Transcoder::getCameraName() const {
-        return cameraName;
-    }
-
-    std::string const &Transcoder::getCameraUrl() const {
-        return cameraUrl;
-    }
 
     // TranscoderContext
 

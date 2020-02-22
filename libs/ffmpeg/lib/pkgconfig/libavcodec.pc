@@ -1,0 +1,14 @@
+prefix=/home/ramsafin/rtsp-video-server/scripts/../libs/ffmpeg
+exec_prefix=${prefix}
+libdir=/home/ramsafin/rtsp-video-server/scripts/../libs/ffmpeg/lib
+includedir=/home/ramsafin/rtsp-video-server/scripts/../libs/ffmpeg/include
+
+Name: libavcodec
+Description: FFmpeg codec library
+Version: 57.107.100
+Requires: libswresample >= 2.9.100, libavutil >= 55.78.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavcodec -lXv -lX11 -lXext -lSDL2 -Wl,--no-undefined -lm -ldl -lasound -lm -ldl -lpthread -lpulse-simple -lpulse -lsndio -lX11 -lXext -lXcursor -lXinerama -lXi -lXrandr -lXss -lXxf86vm -lwayland-egl -lwayland-client -lwayland-cursor -lxkbcommon -lpthread -lrt -lSDL2 -Wl,--no-undefined -lm -ldl -lasound -lm -ldl -lpthread -lpulse-simple -lpulse -lsndio -lX11 -lXext -lXcursor -lXinerama -lXi -lXrandr -lXss -lXxf86vm -lwayland-egl -lwayland-client -lwayland-cursor -lxkbcommon -lpthread -lrt -lvdpau -lX11 -lxcb -lXau -lXdmcp -lxcb-shm -lxcb -lXau -lXdmcp -lxcb-xfixes -lxcb-render -lxcb-shape -lxcb -lXau -lXdmcp -lxcb-shape -lxcb -lXau -lXdmcp -lsndio -lasound -lSDL2 -Wl,--no-undefined -lm -ldl -lasound -lm -ldl -lpthread -lpulse-simple -lpulse -lsndio -lX11 -lXext -lXcursor -lXinerama -lXi -lXrandr -lXss -lXxf86vm -lwayland-egl -lwayland-client -lwayland-cursor -lxkbcommon -lpthread -lrt -L/home/ramsafin/rtsp-video-server/libs/ffmpeg/lib -lx265 -lstdc++ -lm -lrt -ldl -lnuma -L/home/ramsafin/rtsp-video-server/scripts/../libs/ffmpeg/lib -lx264 -lpthread -lm -lfreetype -lz -lpng12 -lz -lm -lm -ldl -llzma -lbz2 -lz -pthread -pthread -lpthread -lm
+Libs.private: 
+Cflags: -I${includedir}

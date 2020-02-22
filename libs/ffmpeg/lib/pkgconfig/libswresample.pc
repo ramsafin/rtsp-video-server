@@ -1,0 +1,14 @@
+prefix=/home/ramsafin/rtsp-video-server/scripts/../libs/ffmpeg
+exec_prefix=${prefix}
+libdir=/home/ramsafin/rtsp-video-server/scripts/../libs/ffmpeg/lib
+includedir=/home/ramsafin/rtsp-video-server/scripts/../libs/ffmpeg/include
+
+Name: libswresample
+Description: FFmpeg audio resampling library
+Version: 2.9.100
+Requires: libavutil >= 55.78.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lswresample -lm
+Libs.private: 
+Cflags: -I${includedir}

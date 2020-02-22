@@ -18,7 +18,6 @@ namespace LIRS {
         encodedDataBuffer.clear();
         encodedDataBuffer.shrink_to_fit();
 
-        LOG(INFO) << transcoder.getCameraName() << ":max NALU size: " << max_nalu_size_bytes;
     }
 
     LiveCamFramedSource::LiveCamFramedSource(UsageEnvironment &env, Transcoder &transcoder) :
@@ -36,7 +35,7 @@ namespace LIRS {
         // start video data encoding/decoding in a new thread
 
         LOG(DEBUG) << "Starting to capture and encode video from the camera: "
-                   << transcoder.getCameraUrl();
+                   << transcoder.getConfig().getName();
 
         std::thread([&transcoder]() {
             transcoder.run();
@@ -66,7 +65,7 @@ namespace LIRS {
 
     void LiveCamFramedSource::doStopGettingFrames() {
 
-        LOG(DEBUG) << "Stop getting frames from the camera: " << transcoder.getCameraName();
+        LOG(DEBUG) << "Stop getting frames from the camera: " << transcoder.getConfig().getName();
 
         FramedSource::doStopGettingFrames();
     }
