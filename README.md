@@ -13,6 +13,8 @@ Clone the repository:
 ```bash
 git clone https://github.com/ramilsafnab1996/rtsp-video-server.git
 
+git submodule update --init
+
 cd rtsp-video-server
 ```
 
