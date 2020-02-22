@@ -87,7 +87,7 @@ mplayer -benchmark rtsp://<ip address>:8554/webcam_0
 
 ## Limitations
 
-- Currently there is no support for the already compressed raw camera formats (e.g. MJPEG). In this case we have 2 options: send the data as it is (e.g. NJPEG stream) or transcode the original video stream into the format we need (e.g. H.264). 
+- Currently there is no support for the already compressed raw camera formats (e.g. MJPEG). In this case we have 2 options: send the data as it is (e.g. MJPEG stream) or transcode the original video stream into the format we need (e.g. H.264). 
 - Lack of control of camera parameters (fps, resolution, etc.) at runtime (no API for that is provided).
 - RTSP multicast broadcasting is not supported (It can be implemted using Live555 API).
 - SSL is not supported (see SRTP).
