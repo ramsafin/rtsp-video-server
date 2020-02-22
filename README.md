@@ -77,6 +77,14 @@ Then you can run the server:
 ./video_server ../config.yaml
 ```
 
+## Testing
+For simple testing whether the server works or not you can use MPlayer (preferred) or VLC:
+```bash
+sudo apt install mplayer
+
+mplayer -benchmark rtsp://<ip address>:8554/webcam_0
+```
+
 ## Limitations
 
 - Currently there is no support for the already compressed raw camera formats (e.g. MJPEG). In this case we have 2 options: send the data as it is (e.g. NJPEG stream) or transcode the original video stream into the format we need (e.g. H.264). 
