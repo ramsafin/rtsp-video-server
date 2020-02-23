@@ -48,6 +48,7 @@ cd ../..
 ```
 
 The most time- and nerve-consuming part, installing FFMpeg ...:
+
 `cd` into the `scripts` directory (prepared bash scripts for installation):
 
 ```bash
