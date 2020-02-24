@@ -31,16 +31,6 @@ Install the dependencies from the `contrib`:
 ```bash
 cd contrib
 
-# library for working with YAML configuration files 
-cd yaml-cpp && \
-cmake -DBUILD_SHARED_LIBS=ON -DYAML_CPP_BUILD_TESTS=OFF . && \
-make -j$(nproc)
-
-# otpional if you change the CMakeLists.txt to built it with your project
-sudo make install
-
-cd ..
-
 # Live555 video streaming server framework
 cd live && ./genMakefiles linux-64bit && make -j$(nproc)
 

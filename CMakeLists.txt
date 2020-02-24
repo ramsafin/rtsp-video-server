@@ -14,7 +14,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 find_package(PkgConfig)
 pkg_check_modules(LOG4CPP REQUIRED log4cpp)
 
-find_package(yaml-cpp 0.6.2 REQUIRED)
 find_package(Live555 REQUIRED)
 find_package(FFmpeg REQUIRED)
 
@@ -25,12 +24,14 @@ include_directories(${YAML_CPP_INCLUDE_DIR})
 include_directories("include")
 file(GLOB SOURCE_FILES "src/*.cpp" "src/config/*.cpp")
 
+add_subdirectory(contrib)
+
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 target_link_libraries(
         ${PROJECT_NAME}
         ${LOG4CPP_LIBRARIES}
         ${Live555_LIBRARIES}
-        ${YAML_CPP_LIBRARIES}
+        yaml-cpp
         ${FFmpeg_LIBRARIES}
 )
