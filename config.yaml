@@ -11,32 +11,44 @@ config:
     max_buf_size: 2000000
     http_enabled: false
     http_port_num: 8080
-
+    
     # URL mappings (does not work, uses the tag name as URL, e.g. webcam_0)
     mappings:
       webcam_0: /video_stream_0
 
   # can be modified to handle video files, URL streams, etc.
   cameras:
-
-    # camera parameters
     webcam_0:
+      # video source
       resource: /dev/video0
+      
+      # decoding parameters
       input:
         frame_rate: {num: 30, den: 1}
         resolution: {width: 640, height: 480}
         pixel_format: yuyv422
 
+      # video preprocessing (intermediate phase b/w decoding (capturing) and encoding) 
       output:
-        frame_rate: {num: 14, den: 1}
+        # the FPS can be adjusted (higher values - less quality for the same bitrate)
+        frame_rate: {num: 30, den: 1}
+        # frame resampling
         resolution: {width: 320, height: 240}
+        # converting to the supported by the encoder format (yuv420p, yuv422p, etc.) 
         pixel_format: yuv422p
 
       # refer to the codec documentation for tuning the parameters
       encoder:
+        # video streaming bitrate (kbps), higher values - more quality (data)
         bitrate: 2000
+        # video buffering size
         vbv_buf_size: 4000
+        # ultrafast, veryfast, fast, slow, veryslow
         preset: ultrafast
+        # focus on the encoding speed instead of the extent of compression 
         tune: zerolatency
+        # you can tune other encoder parameters here
+        # just modify the code to read these parameters from this YAML file
+        # and make respective changes in the encoder code
         slices: 1
-        intra_refresh_enabled: true
+        intra_refresh_enabled: false
