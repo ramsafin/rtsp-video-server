@@ -1,0 +1,42 @@
+
+# only active cameras will be employed
+active_cameras: [webcam_0]
+
+config:
+
+  server:
+    max_packet_size: 1500
+    rtsp_port_num: 8554
+    topic_prefix: ~
+    max_buf_size: 2000000
+    http_enabled: false
+    http_port_num: 8080
+
+    # URL mappings (does not work, uses the tag name as URL, e.g. webcam_0)
+    mappings:
+      webcam_0: /video_stream_0
+
+  # can be modified to handle video files, URL streams, etc.
+  cameras:
+
+    # camera parameters
+    webcam_0:
+      resource: /dev/video0
+      input:
+        frame_rate: {num: 30, den: 1}
+        resolution: {width: 640, height: 480}
+        pixel_format: yuyv422
+
+      output:
+        frame_rate: {num: 14, den: 1}
+        resolution: {width: 320, height: 240}
+        pixel_format: yuv422p
+
+      # refer to the codec documentation for tuning the parameters
+      encoder:
+        bitrate: 2000
+        vbv_buf_size: 4000
+        preset: ultrafast
+        tune: zerolatency
+        slices: 1
+        intra_refresh_enabled: true

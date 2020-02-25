@@ -1,9 +1,8 @@
-#include "Config.hpp"
 #include "LiveCameraRTSPServer.hpp"
+#include "config/ExtensionConfigLoaderFactory.hpp"
 #include <csignal>
 
 namespace {
-
     std::function<void(int)> shutdown_handler;
 
     void signal_handler(int signal) {
@@ -13,38 +12,51 @@ namespace {
 
 int main(int argc, char **argv) {
 
-    // set SIG* handlers
+    assert(argc >= 2);
+
     std::signal(SIGTERM, signal_handler);
     std::signal(SIGKILL, signal_handler);
     std::signal(SIGINT, signal_handler);
 
     // init loggers
     initLogger(log4cpp::Priority::INFO);
+
     av_log_set_level(AV_LOG_INFO);
 
-    // load configuration
-    LIRS::Configuration configuration;
+    using namespace lirs::config;
 
-    configuration.loadConfig(argc, argv);
+    params::Configuration configuration;
 
-    LIRS::Transcoder leftCamera(configuration, "left_cam", LEFT_CAM);
-    LIRS::Transcoder rightCamera(configuration, "right_cam", RIGHT_CAM);
+    ExtensionConfigLoaderFactory extensionConfigLoaderFactory;
 
-    LIRS::LiveCameraRTSPServer server;
+    try {
 
-    server.udpDatagramSize = static_cast<unsigned int>(configuration.get_udp_datagram_size());
-    server.estimatedBitrate = static_cast<unsigned int>(configuration.get_bitrate());
+        auto configLoader = extensionConfigLoaderFactory.createConfigLoader(argv[1]);
 
-    shutdown_handler = [&server](int signal) {
-        LOG(INFO) << "Terminating server...";
-        server.stopServer();
-    };
+        bool status = configLoader->load(configuration);
 
-    server.addTranscoder(leftCamera);
-    server.addTranscoder(rightCamera);
+        assert(status);
+
+        LIRS::LiveCameraRTSPServer server(configuration.getServerParams());
+
+        shutdown_handler = [&server](int signal){
+            LOG(INFO) << "Terminating server: " << signal;
+            server.stopServer();
+        };
+
+        for (auto &conf : configuration.getCameraParams()) {
+
+            server.addTranscoder(std::make_shared<LIRS::Transcoder>(conf.second));
+        }
+
+        server.run();
 
 
-    server.run();
+    } catch (const std::invalid_argument& err) {
+
+        LOG(ERROR) << err.what();
+    }
 
     return 0;
+
 }

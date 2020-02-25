@@ -1,14 +1,2 @@
-cmake-build-debug
-.idea
-CMakeCache.txt
-CMakeFiles/
-Makefile
-cmake_install.cmake
-*.cbp
-*.json
-RTSPServer
-build/
-testenv/
-.DS_Store
-~*
-*.xlsx
+build
+libs
