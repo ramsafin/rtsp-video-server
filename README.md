@@ -1,4 +1,4 @@
-# Engineer Video Streaming
+# RTSP Video Streaming
 
 ## Prerequisites
 
